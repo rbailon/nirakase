@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Update Checker for Waybar
-# Checks for official (pacman) and AUR (yay) updates safely in the background.
-# If there are updates, returns a JSON for Waybar showing the count. Otherwise, returns empty.
+# ==============================================================================
+# Nirakase: nirakase-update-available
+# Description: Background update checker module for Waybar.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

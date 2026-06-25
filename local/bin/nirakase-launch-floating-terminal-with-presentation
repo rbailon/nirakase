@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Floating Terminal Launcher with Presentation
-# Runs a command in a floating terminal window showing the startup logo (via $NIRAKASE_LOGO) and completion screen.
+# ==============================================================================
+# Nirakase: nirakase-launch-floating-terminal-with-presentation
+# Description: Runs a command inside a floating terminal window with a logo presentation.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

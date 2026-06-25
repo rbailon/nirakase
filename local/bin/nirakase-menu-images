@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-
-# ========================================================================
-#          Nirakase: Daemonized Image Selector Client
-# ========================================================================
-# Highly optimized Bash client that manages a thumbnail cache, signatures
-# wallpapers, and transmits data using JSON over a UNIX socket to Quickshell.
-# ========================================================================
+# ==============================================================================
+# Nirakase: nirakase-menu-images
+# Description: Daemonized image/wallpaper selector for Quickshell.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -euo pipefail
 

@@ -1,6 +1,9 @@
 #!/bin/bash
-
-# nirakase:summary=Returns the battery time remaining (to empty or full) in a compact format.
+# ==============================================================================
+# Nirakase: nirakase-battery-remaining-time
+# Description: Calculates the estimated remaining battery time.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 battery_info=$(upower -i $(upower -e | grep BAT))
 

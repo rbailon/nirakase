@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Web Application Remover
-# Allows listing, selecting, and removing one or several WebApps along with their icons.
+# ==============================================================================
+# Nirakase: nirakase-webapp-remove
+# Description: Interactive remover for web application desktop entries and their icons.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

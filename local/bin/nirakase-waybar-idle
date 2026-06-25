@@ -1,6 +1,9 @@
 #!/bin/bash
-
-# nirakase:summary=Hyprland status control in Waybar, as well as its toggle switch
+# ==============================================================================
+# Nirakase: nirakase-waybar-idle
+# Description: Waybar system idle inhibitor status and toggle controller.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 SERVICE="hypridle.service"
 STATUS=$(systemctl --user is-active $SERVICE)

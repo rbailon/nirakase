@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Power & Profile TUI Manager
-# Aesthetic FZF terminal interface to select system power profiles and run system actions.
+# ==============================================================================
+# Nirakase: nirakase-power
+# Description: Interactive power manager and system actions utility.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

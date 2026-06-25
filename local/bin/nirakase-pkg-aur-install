@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: AUR Package Installer (yay)
-# Dynamic interactive search for the Arch User Repository (AUR) with real-time query,
-# information preview, installation indicators, and ANSI color support.
+# ==============================================================================
+# Nirakase: nirakase-pkg-aur-install
+# Description: Interactive AUR package installer utilizing yay and FZF.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Web Application Shortcut Creator (.desktop)
-# Allows creating quick WebApp shortcuts with favicon download and strict data validation.
+# ==============================================================================
+# Nirakase: nirakase-webapp-creator
+# Description: Interactive creator for web application desktop entries.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -euo pipefail
 

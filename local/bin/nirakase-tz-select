@@ -1,7 +1,9 @@
 #!/bin/bash
-
-# nirakase:summary=Select and set the system timezone
-# nirakase:requires-sudo=true
+# ==============================================================================
+# Nirakase: nirakase-tz-select
+# Description: Timezone selection utility wrapper.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 echo "Current timezone is: $(cat /etc/timezone)"
 timezone=$(timedatectl list-timezones | gum filter --height 20 --header "Set timezone") || exit 1

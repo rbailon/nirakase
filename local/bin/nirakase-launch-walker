@@ -1,6 +1,9 @@
 #!/bin/bash
-
-# nirakase:summary=Launch Walker and ensure its Elephant data provider is running
+# ==============================================================================
+# Nirakase: nirakase-launch-walker
+# Description: Launches the Walker application launcher menu.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 if ! pgrep -x elephant > /dev/null; then
   setsid uwsm-app -- elephant &

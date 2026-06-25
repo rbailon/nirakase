@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Package Uninstaller (Official & AUR)
-# Interactive unified search for all locally installed packages (Pacman and AUR)
-# with information preview, ANSI colors, and multiple uninstallation support.
+# ==============================================================================
+# Nirakase: nirakase-pkg-remove
+# Description: Interactive package uninstaller for official and AUR packages using FZF.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

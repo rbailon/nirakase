@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Unified Screenshot Utility for Niri / Wayland
-# Automatically creates the Pictures/Screenshots directory, captures the screen,
-# copies the result to the clipboard, and launches Satty for annotations.
-# Supports arguments: "area" (default), "window" (focused window), and "monitor" (focused monitor).
+# ==============================================================================
+# Nirakase: nirakase-capture-screenshot
+# Description: Unified screenshot utility supporting region, window, and monitor captures.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

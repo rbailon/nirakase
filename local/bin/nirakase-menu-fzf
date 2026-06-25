@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Main Desktop Menu (FZF Terminal Version with Borders)
-# Interactive terminal interface based on FZF with minimal monochromatic icons (Nerd Fonts)
-# and short keyboard shortcuts aesthetically integrated in FZF's bottom frames.
+# ==============================================================================
+# Nirakase: nirakase-menu-fzf
+# Description: Main terminal-based desktop environment menu using FZF.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Package Installer
-# Interactive search for official pacman packages with preview, ANSI colors, and multiple installation support.
+# ==============================================================================
+# Nirakase: nirakase-pkg-install
+# Description: Interactive official repository package installer utilizing pacman and FZF.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: System Updater
-# Synchronizes and searches for available updates from official and AUR repositories,
-# allowing to update everything, select specific packages, or cancel.
+# ==============================================================================
+# Nirakase: nirakase-update-system
+# Description: Interactive system updater for official and AUR packages.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

@@ -1,6 +1,9 @@
 #!/bin/bash
-
-# nirakase:summary=Returns the battery full capacity in Wh (rounded to whole number).
+# ==============================================================================
+# Nirakase: nirakase-battery-capacity
+# Description: Retrieves the current battery charge capacity level.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 battery_info=$(upower -i $(upower -e | grep BAT))
 

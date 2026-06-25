@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Web Application Launcher
-# Generic launcher to run webapps in application mode (without browser borders, tabs, or address bar)
+# ==============================================================================
+# Nirakase: nirakase-launch-webapp
+# Description: Launches a web application in borderless application mode.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -euo pipefail
 

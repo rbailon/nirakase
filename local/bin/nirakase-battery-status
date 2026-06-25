@@ -1,6 +1,9 @@
 #!/bin/bash
-
-# nirakase:summary=Returns a formatted battery status string with percentage and power draw/charge.
+# ==============================================================================
+# Nirakase: nirakase-battery-status
+# Description: Retrieves the unified system battery and power supply status.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 battery_info=$(upower -i $(upower -e | grep BAT))
 

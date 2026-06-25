@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Process Completion
-# Displays a completion message in English and waits for the user to press a key to close the terminal.
+# ==============================================================================
+# Nirakase: nirakase-show-done
+# Description: Displays a process completion screen and pauses for user input.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

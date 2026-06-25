@@ -1,6 +1,9 @@
 #!/bin/bash
-
-# nirakase:summary=Mako DND (do-not-disturb) status control in Waybar, as well as its toggle switch
+# ==============================================================================
+# Nirakase: nirakase-waybar-notifications
+# Description: Waybar notifications DND status indicator and toggle switch.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 if [ "$1" == "toggle" ]; then
   # Check if 'dnd' mode is already active

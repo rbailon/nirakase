@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Default Applications Selector (TUI Version)
-# Allows configuring default applications (Web Browser, Terminal, File Manager)
-# by scanning installed .desktop files and choosing via FZF.
+# ==============================================================================
+# Nirakase: nirakase-defaultapps
+# Description: Interactive TUI selector to configure default applications (Browser, Terminal, File Manager).
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -euo pipefail
 

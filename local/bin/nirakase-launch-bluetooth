@@ -1,6 +1,9 @@
 #!/bin/bash
-
-# nirakase:summary=Launch the nirakase bluetooth controls TUI (provided by bluetui).
+# ==============================================================================
+# Nirakase: nirakase-launch-bluetooth
+# Description: Launches the bluetooth configuration TUI.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd):$PATH"
 

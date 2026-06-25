@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Weather Script for Waybar
-# Fetches local weather from wttr.in in JSON format and structures it for Waybar with Nerd Fonts.
+# ==============================================================================
+# Nirakase: nirakase-weather
+# Description: Waybar custom weather info module utilizing wttr.in.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

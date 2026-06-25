@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-
-# Nirakase: Logo Presentation
-# Clears the screen and displays the logo in green color (prioritizing the UWSM environment variable).
+# ==============================================================================
+# Nirakase: nirakase-logo
+# Description: Displays the official Nirakase ASCII logo with ANSI colors.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -uo pipefail
 

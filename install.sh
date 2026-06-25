@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-
-# ========================================================================
-#             Nirakase: Official Evironment Installer
-# ========================================================================
-# Intelligent, idempotent, and highly portable installer script.
-# Handles backups automatically and supports continuous development.
-# ========================================================================
+# ==============================================================================
+# Nirakase: install.sh
+# Description: Official installation script for the Nirakase Desktop Environment.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
 
 set -euo pipefail
 
