@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Nirakase: Floating Terminal Launcher with Presentation
+# Runs a command in a floating terminal window showing the startup logo (via $NIRAKASE_LOGO) and completion screen.
+
+set -uo pipefail
+
+if [ -z "${1:-}" ]; then
+    echo "Usage: nirakase-launch-floating-terminal-with-presentation <command> [arguments...]"
+    exit 1
+fi
+
+cmd="$*"
+
+# Launch using setsid and uwsm-app with xdg-terminal-exec
+# The $NIRAKASE_LOGO environment variable is printed directly in green with a fallback to the physical script.
+# For maximum robustness, the auxiliary scripts are referenced via their absolute path in ~/.local/bin/
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.nirakase.terminal --title=nirakase -e bash -c "clear; if [ -n \"\${NIRAKASE_LOGO:-}\" ]; then echo -e \"\033[32m\$NIRAKASE_LOGO\033[0m\n\"; else ~/.local/bin/nirakase-logo; fi; $cmd; if (( \$? != 130 )); then ~/.local/bin/nirakase-show-done; fi"

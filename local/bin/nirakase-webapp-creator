@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+
+# Nirakase: Web Application Shortcut Creator (.desktop)
+# Allows creating quick WebApp shortcuts with favicon download and strict data validation.
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No color
+
+# Variable to track if a temporary icon file was downloaded
+icon_downloaded=false
+icon_path=""
+
+# Function to clean up files in case of cancellation or error
+cleanup() {
+    if [ "$icon_downloaded" = true ] && [ -f "${icon_path:-}" ]; then
+        rm -f "$icon_path"
+    fi
+}
+trap cleanup EXIT
+
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "${CYAN}             Nirakase WebApp Creator (.desktop)                         ${NC}"
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "${YELLOW}* Type 'q' or 'cancel' at any prompt to exit without saving.${NC}\n"
+
+# 1. Prompt and validate application Name
+while true; do
+    read -rp "$(echo -e "${CYAN}➤ Application Name: ${NC}")" app_name
+    
+    # Remove leading/trailing whitespaces
+    app_name="$(echo "$app_name" | xargs)"
+    
+    if [[ "$app_name" =~ ^(q|quit|cancel)$ ]]; then
+        echo -e "${RED}Operation cancelled. ${NC}"
+        exit 0
+    fi
+    
+    if [ -n "$app_name" ]; then
+        break
+    fi
+    
+    echo -e "${RED}[Error] The application name cannot be empty.${NC}"
+done
+
+# 2. Prompt and validate application URL
+while true; do
+    read -rp "$(echo -e "${CYAN}➤ Application URL (https://...): ${NC}")" app_url
+    
+    # Remove leading/trailing whitespaces
+    app_url="$(echo "$app_url" | xargs)"
+    
+    if [[ "$app_url" =~ ^(q|quit|cancel)$ ]]; then
+        echo -e "${RED}Operation cancelled.${NC}"
+        exit 0
+    fi
+    
+    if [ -z "$app_url" ]; then
+        echo -e "${RED}[Error] The URL cannot be empty.${NC}"
+        continue
+    fi
+    
+    # Normalize URL (ensure it starts with http:// or https://)
+    if [[ ! "$app_url" =~ ^https?:// ]]; then
+        app_url="https://$app_url"
+    fi
+    
+    # Extract the domain
+    domain=$(echo "$app_url" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+    if [ -z "$domain" ]; then
+        echo -e "${RED}[Error] The URL does not seem to have a valid format or domain.${NC}"
+        continue
+    fi
+    
+    # Verify connection to the URL
+    echo -e "${BLUE}[Validating]${NC} Verifying active connection to ${CYAN}$app_url${NC}..."
+    if curl -sL --connect-timeout 5 --head "$app_url" >/dev/null; then
+        echo -e "${GREEN}[✔] Connection established successfully.${NC}"
+        break
+    else
+        echo -e "${YELLOW}[!] Warning: Could not verify connection to the URL.${NC}"
+        echo -e "    You might be offline, the site might be down, or it might require specific parameters."
+        read -rp "$(echo -e "${YELLOW}Do you want to use this URL anyway? [y/N]: ${NC}")" force_url
+        force_url="$(echo "$force_url" | tr '[:upper:]' '[:lower:]')"
+        
+        if [[ "$force_url" =~ ^(q|quit|cancel)$ ]]; then
+            echo -e "${RED}Operation cancelled.${NC}"
+            exit 0
+        fi
+        
+        if [[ "$force_url" =~ ^(y|yes)$ ]]; then
+            break
+        fi
+    fi
+done
+
+# 3. Define paths and directories
+ICONS_DIR="${HOME}/.local/share/applications/icons"
+DESKTOP_DIR="${HOME}/.local/share/applications"
+LOCAL_BIN_DIR="${HOME}/.local/bin"
+
+mkdir -p "$ICONS_DIR"
+mkdir -p "$DESKTOP_DIR"
+mkdir -p "$LOCAL_BIN_DIR"
+
+# Generate a safe filename
+safe_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]/-/g' -e 's/-\+/-/g' -e 's/^-//' -e 's/-$//')
+icon_path="${ICONS_DIR}/${safe_name}.png"
+desktop_path="${DESKTOP_DIR}/${safe_name}.desktop"
+
+# 4. Ensure the launch command is in ~/.local/bin
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LAUNCHER_SOURCE="${SCRIPT_DIR}/nirakase-launch-webapp"
+
+if [ -f "$LAUNCHER_SOURCE" ]; then
+    if [ ! -f "${LOCAL_BIN_DIR}/nirakase-launch-webapp" ]; then
+        ln -sf "$LAUNCHER_SOURCE" "${LOCAL_BIN_DIR}/nirakase-launch-webapp"
+        chmod +x "${LOCAL_BIN_DIR}/nirakase-launch-webapp"
+        echo -e "${GREEN}[System]${NC} Linked launcher command to ${BLUE}${LOCAL_BIN_DIR}/nirakase-launch-webapp${NC}"
+    fi
+fi
+
+# 5. Download favicon automatically
+echo -e "\n${BLUE}[Icon]${NC} Attempting to retrieve favicon from ${CYAN}${domain}${NC}..."
+success=false
+
+if curl -sL --fail "https://www.google.com/s2/favicons?sz=128&domain=${domain}" -o "$icon_path"; then
+    if [ -s "$icon_path" ]; then
+        echo -e "${GREEN}[✔] Favicon downloaded successfully.${NC}"
+        success=true
+        icon_downloaded=true
+    fi
+fi
+
+# If it fails, ask the user for an alternative URL
+if [ "$success" = false ]; then
+    echo -e "${YELLOW}[!] Could not retrieve favicon automatically.${NC}"
+    echo -e "${CYAN}[Suggestion] You can search for premium icons at:${NC} ${PURPLE}https://dashboardicons.com/${NC}"
+    
+    while true; do
+        read -rp "$(echo -e "${CYAN}➤ Icon image URL (leave empty to use generic system icon): ${NC}")" custom_icon_url
+        custom_icon_url="$(echo "$custom_icon_url" | xargs)"
+        
+        if [[ "$custom_icon_url" =~ ^(q|quit|cancel)$ ]]; then
+            echo -e "${RED}Operation cancelled.${NC}"
+            exit 0
+        fi
+        
+        if [ -z "$custom_icon_url" ]; then
+            break
+        fi
+        
+        # Validate and download from custom URL
+        echo -e "${BLUE}[Icon]${NC} Downloading custom icon..."
+        if curl -sL --fail "$custom_icon_url" -o "$icon_path"; then
+            echo -e "${GREEN}[✔] Custom icon downloaded successfully.${NC}"
+            success=true
+            icon_downloaded=true
+            break
+        else
+            echo -e "${RED}[Error] Could not download image from that URL. Try again or leave empty.${NC}"
+        fi
+    done
+fi
+
+# Define the final icon value
+if [ "$success" = false ]; then
+    icon_value="web-browser"
+    echo -e "${YELLOW}[!] Generic 'web-browser' icon will be used.${NC}"
+else
+    icon_value="$icon_path"
+fi
+
+# 6. Summary and Final Confirmation (Allow cancelling before saving)
+echo -e "\n${PURPLE}========================================================================${NC}"
+echo -e "${YELLOW}              Summary of the WebApp to Create                           ${NC}"
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "  - ${CYAN}Application Name:${NC}   $app_name"
+echo -e "  - ${CYAN}Target URL:${NC}         $app_url"
+echo -e "  - ${CYAN}Generated Launcher:${NC} $desktop_path"
+echo -e "  - ${CYAN}Assigned Icon:${NC}      $icon_value"
+echo -e "  - ${CYAN}Executed Command:${NC}   nirakase-launch-webapp \"$app_url\""
+echo -e "${PURPLE}========================================================================${NC}"
+
+read -rp "$(echo -e "${YELLOW}➤ Do you want to create this shortcut now? [Y/n]: ${NC}")" confirm
+confirm="$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')"
+
+if [ -n "$confirm" ] && [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
+    echo -e "${RED}Operation cancelled by user. Nothing has been saved.${NC}"
+    # Trap will delete the icon file if it was downloaded
+    exit 0
+fi
+
+# 7. Create the final .desktop file
+if cat > "$desktop_path" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=${app_name}
+Comment=Web Application for ${app_name}
+Exec=nirakase-launch-webapp "${app_url}"
+Icon=${icon_value}
+Terminal=false
+Categories=Network;WebBrowser;NirakaseWebApp;
+StartupWMClass=${domain}
+EOF
+then
+    chmod +x "$desktop_path"
+    # Disable trap so it does not delete the icon on normal exit
+    icon_downloaded=false
+    notify-send -u normal -i software-properties "Nirakase WebApp Creator" "WebApp '${app_name}' created successfully."
+    echo -e "\n${GREEN}✔ SHORTCUT CREATED SUCCESSFULLY!${NC}"
+    echo -e "💡 You can now search for ${GREEN}\"${app_name}\"${NC} in your application launcher.\n"
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit 0
+else
+    exit_code=$?
+    notify-send -u critical -i dialog-error "Nirakase WebApp Creator" "Failed to create WebApp '${app_name}'."
+    echo -e "\n${RED}[Error] Failed to write the shortcut at $desktop_path (exit code $exit_code).${NC}"
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit $exit_code
+fi

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Maps
+Comment=Web Application for Google Maps
+Exec=nirakase-launch-webapp "https://maps.google.com"
+Icon=/home/rbailon/.local/share/applications/icons/google-maps.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=maps.google.com

@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+# Nirakase: Weather Script for Waybar
+# Fetches local weather from wttr.in in JSON format and structures it for Waybar with Nerd Fonts.
+
+set -uo pipefail
+
+# wttr.in weather code mapping to Nerd Font icons
+get_icon() {
+    local code="$1"
+    case "$code" in
+        113) echo "󰖙" ;; # Sunny/Clear
+        116) echo "󰖕" ;; # Partly Cloudy
+        119|122) echo "󰖐" ;; # Cloudy/Overcast
+        143|248|260) echo "󰖑" ;; # Fog/Mist/Haze
+        176|263|266|293|296|299|302|305|308|353|356|359) echo "󰖗" ;; # Rain/Drizzle
+        200|386|389|392) echo "󰖓" ;; # Thunderstorm
+        179|182|185|227|230|323|326|329|332|335|338|350|368|371|395) echo "󰼶" ;; # Snow
+        *) echo "󰖐" ;; # Default/Unknown
+    esac
+}
+
+# Fetch weather data
+weather_json=$(curl -s --connect-timeout 4 "wttr.in/?format=j1" 2>/dev/null)
+
+if [ $? -ne 0 ] || [ -z "$weather_json" ]; then
+    # Return unavailable status for Waybar to hide or style appropriately
+    echo '{"text": "󰖪", "class": "unavailable", "tooltip": "Weather Service Unavailable"}'
+    exit 0
+fi
+
+# Parse current condition
+current=$(echo "$weather_json" | jq -r '.current_condition[0] // empty')
+
+if [ -z "$current" ]; then
+    echo '{"text": "󰖪", "class": "unavailable", "tooltip": "Weather Data Malformed"}'
+    exit 0
+fi
+
+temp=$(echo "$current" | jq -r '.temp_C')
+feels_like=$(echo "$current" | jq -r '.FeelsLikeC')
+humidity=$(echo "$current" | jq -r '.humidity')
+wind_speed=$(echo "$current" | jq -r '.windspeedKmph')
+weather_code=$(echo "$current" | jq -r '.weatherCode')
+desc=$(echo "$current" | jq -r '.weatherDesc[0].value' | xargs) # trim whitespace
+
+# Get icon
+icon=$(get_icon "$weather_code")
+
+# Nearest area
+area=$(echo "$weather_json" | jq -r '.nearest_area[0].areaName[0].value // "Local"')
+
+# Structure tooltip
+tooltip=$(cat <<EOF
+Area: ${area}
+Condition: ${desc}
+Temperature: ${temp}°C (Feels like ${feels_like}°C)
+Humidity: ${humidity}%
+Wind Speed: ${wind_speed} km/h
+EOF
+)
+
+# Output JSON for Waybar
+jq -n -c \
+    --arg text "${icon} ${temp}°C" \
+    --arg tooltip "$tooltip" \
+    '{"text": $text, "tooltip": $tooltip}'

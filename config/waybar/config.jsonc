@@ -1,0 +1,170 @@
+{
+  "reload_style_on_change": true,
+  "layer": "top",
+  "position": "top",
+  "spacing": 4,
+  "height": 26,
+  "width": 0,
+  "margin-top": 2,
+  "margin-bottom": 0,
+  "margin-left": 6,
+  "margin-right": 6,
+  // "modules-left": ["niri/workspaces"],
+  // "modules-center": ["clock#horizontal", "custom/weather", "custom/update", "custom/voxtype", "custom/screenrecording-indicator", "custom/idle-indicator", "custom/notifications-indicator"],
+  // "modules-right": [
+  //   "group/tray-expander",
+  //   "bluetooth",
+  //   "network",
+  //   "pulseaudio",
+  //   "cpu",
+  //   "battery"
+  // ],
+  "modules-center": [
+    "custom/update", 
+    "custom/weather", 
+    "clock#horizontal", 
+    "niri/workspaces", 
+    "custom/idle-indicator", 
+    "custom/notifications-indicator",
+    "bluetooth",
+    "network",
+    "pulseaudio",
+    "cpu",
+    "group/tray-expander",
+    "battery"
+  ],
+  "niri/workspaces": {
+	  "format": "{icon}",
+	  "format-icons": {
+      "default": "",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7",
+      "8": "8",
+      "9": "9",
+      "10": "0",
+      "active": "󱓻"
+    }
+  },
+  "custom/update": {
+    "exec": "nirakase-update-available",
+    "return-type": "json",
+    "interval": 3600,
+    "on-click": "nirakase-launch-floating-terminal-with-presentation nirakase-update-system",
+    "signal": 7
+  },
+
+  "cpu": {
+    "interval": 5,
+    "format": "󰍛",
+    "on-click": "nirakase-launch-or-focus-tui btop",
+    "on-click-right": "xdg-terminal-exec"
+  },
+  "clock#horizontal": {
+    "format": "{:L%A %H:%M}",
+    "format-alt": "{:L%d %B W%V %Y}",
+    "tooltip": false,
+    "on-click-right": "nirakase-launch-floating-terminal-with-presentation nirakase-tz-select"
+  },
+  "custom/weather": {
+    "exec": "nirakase-weather",
+    "return-type": "json",
+    "interval": 900,
+    "tooltip": true
+  },
+  "network": {
+    "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+    "format": "{icon}",
+    "format-wifi": "{icon}",
+    "format-ethernet": "󰀂",
+    "format-disconnected": "󰤮",
+    "tooltip-format-wifi": "{essid} ({frequency} GHz)",
+    "tooltip-format-ethernet": "Connected",
+    "tooltip-format-disconnected": "Disconnected",
+    "interval": 3,
+    "spacing": 1,
+    "on-click": "nirakase-launch-wifi"
+  },
+  "battery": {
+    "format": "{capacity}% {icon}",
+    "format-discharging": "{icon} {capacity}%",
+    "format-charging": "{icon}",
+    "format-plugged": "",
+    "format-icons": {
+      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
+      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
+    },
+    "format-full": "󰂅",
+    "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
+    "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
+    "interval": 5,
+    "on-click": "nirakase-launch-or-focus-tui nirakase-power",
+    "on-click-right": "notify-send -u low \"$(nirakase-battery-status)\"",
+    "states": {
+      "warning": 20,
+      "critical": 10
+    }
+  },
+  "bluetooth": {
+    "format": "",
+    "format-off": "󰂲",
+    "format-disabled": "󰂲",
+    "format-connected": "󰂱",
+    "format-no-controller": "",
+    "tooltip-format": "Devices connected: {num_connections}",
+    "on-click": "nirakase-launch-bluetooth"
+  },
+  "pulseaudio": {
+    "format": "{icon}",
+    "on-click": "nirakase-launch-audio",
+    "on-click-right": "pamixer -t",
+    "tooltip-format": "Playing at {volume}%",
+    "scroll-step": 5,
+    "format-muted": "",
+    "format-icons": {
+      "headphone": "",
+      "headset": "",
+      "default": ["", "", ""]
+    }
+  },
+  "group/tray-expander": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 600,
+      "children-class": "tray-group-item"
+    },
+    "modules": ["group/expand-icons", "tray"]
+  },
+  "group/expand-icons": {
+    "orientation": "inherit",
+    "modules": ["custom/expand-icon#horizontal"]
+  },
+  "custom/expand-icon#horizontal": {
+    "format": "",
+    "tooltip": false,
+    "on-scroll-up": "",
+    "on-scroll-down": "",
+    "on-scroll-left": "",
+    "on-scroll-right": ""
+  },
+  "custom/idle-indicator": {
+    "on-click": "nirakase-waybar-idle toggle",
+    "exec": "nirakase-waybar-idle",
+    "signal": 9,
+    "return-type": "json"
+  },
+  "custom/notifications-indicator": {
+    "on-click": "nirakase-waybar-notifications toggle",
+    "exec": "nirakase-waybar-notifications",
+    "signal": 10,
+    "return-type": "json"
+  },
+  "tray": {
+    "icon-size": 12,
+    "spacing": 17
+  }
+}

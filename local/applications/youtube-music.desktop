@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Youtube Music
+Comment=Web Application for Youtube Music
+Exec=nirakase-launch-webapp "https://music.youtube.com"
+Icon=/home/rbailon/.local/share/applications/icons/youtube-music.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=music.youtube.com

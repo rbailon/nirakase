@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# Nirakase: Process Completion
+# Displays a completion message in English and waits for the user to press a key to close the terminal.
+
+set -uo pipefail
+
+echo
+if command -v gum >/dev/null 2>&1; then
+    # Use gum spin for an interactive and smooth presentation
+    gum spin --spinner "globe" --title "Done! Press any key to close..." -- bash -c 'read -n 1 -s'
+else
+    # Classic fallback if gum is not installed
+    echo -ne "\033[1;32mDone!\033[0m Press any key to close..."
+    read -n 1 -s
+    echo
+fi

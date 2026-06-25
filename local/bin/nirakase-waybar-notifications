@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# nirakase:summary=Mako DND (do-not-disturb) status control in Waybar, as well as its toggle switch
+
+if [ "$1" == "toggle" ]; then
+  # Check if 'dnd' mode is already active
+  if makoctl mode | grep -q "dnd"; then
+    makoctl mode -r dnd
+  notify-send -u low "󰂛   Mako: Do-not-disturb"
+  else
+    makoctl mode -a dnd
+  notify-send -u low "󰂚   Mako: Notifications enabled"
+  fi
+
+   # Refresh Waybar
+  pkill -RTMIN+10 waybar
+  exit 0
+fi
+
+if makoctl mode | grep -q "dnd"; then
+  echo '{"text": "", "class": "dnd", "tooltip": "Mako: Do-not-disturb"}'
+else
+  echo '{"text": "", "class": "default", "tooltip": "Mako: Notifications enabled"}'
+fi

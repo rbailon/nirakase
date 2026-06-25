@@ -1,0 +1,13 @@
+[Unit]
+Description=Nirakase Image Selector Daemon (Quickshell)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/quickshell -p %h/.config/quickshell/background-switcher.qml
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target

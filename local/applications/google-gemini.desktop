@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Gemini
+Comment=Web Application for Google Gemini
+Exec=nirakase-launch-webapp "https://gemini.google.com"
+Icon=/home/rbailon/.local/share/applications/icons/google-gemini.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=gemini.google.com

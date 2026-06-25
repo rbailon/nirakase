@@ -1,0 +1,20 @@
+# Python bytecode and cache
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Agent and development scratchpads
+scratch/
+
+# Backup files created during installation or deployment conflicts
+*.bak.*
+*~
+
+# Editor and OS metadata/temporary files
+.DS_Store
+*.swp
+*.swo
+.directory
+
+# Local cache and temporary data
+.cache/

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Github
+Comment=Web Application for Github
+Exec=nirakase-launch-webapp "https://github.com"
+Icon=/home/rbailon/.local/share/applications/icons/github.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=github.com

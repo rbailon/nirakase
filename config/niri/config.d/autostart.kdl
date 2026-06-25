@@ -1,0 +1,26 @@
+// Add lines like this to spawn processes at startup.
+// Note that running niri as a session supports xdg-desktop-autostart,
+// which may be more convenient to use.
+// See the binds section below for more spawn examples.
+
+// This line starts waybar, a commonly used bar for Wayland compositors.
+// spawn-sh-at-startup "uwsm app -- waybar -c ~/.local/share/omarchy/config/waybar/config.jsonc"
+
+// To run a shell command (with variables, pipes, etc.), use spawn-sh-at-startup:
+// spawn-sh-at-startup "qs -c ~/source/qs/MyAwesomeShell"
+
+
+
+// spawn-at-startup "~/.local/share/nirakase/niri/autostart.sh"
+
+// spawn-sh-at-startup "uwsm-app -- hypridle"
+// spawn-sh-at-startup "uwsm-app -- mako"
+// spawn-sh-at-startup "uwsm-app -- waybar"
+
+// spawn-sh-at-startup "uwsm-app -- swaybg -i ~/.config/omarchy/current/background -m fill"
+
+// spawn-sh-at-startup "uwsm-app -- /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
+spawn-sh-at-startup "uwsm-app -- walker --gapplication-service"
+
+spawn-sh-at-startup "uwsm-app -- systemctl --user import-environment $(env | cut -d'=' -f 1)"
+spawn-sh-at-startup "uwsm-app -- dbus-update-activation-environment --systemd --all"

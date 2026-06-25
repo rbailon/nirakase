@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Nirakase (Niri uwsm)
+Comment=Entorno Omakase basado en Niri y gestionado por uwsm
+Exec=uwsm start -g -1 -e -D Niri niri.desktop
+Type=Application

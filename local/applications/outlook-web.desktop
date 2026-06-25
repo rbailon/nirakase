@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Outlook Web
+Comment=Web Application for Outlook Web
+Exec=nirakase-launch-webapp "https://outlook.cloud.microsoft/mail/"
+Icon=/home/rbailon/.local/share/applications/icons/outlook-web.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=outlook.cloud.microsoft

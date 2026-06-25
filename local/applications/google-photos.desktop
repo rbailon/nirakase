@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Photos
+Comment=Web Application for Google Photos
+Exec=nirakase-launch-webapp "https://photos.google.com"
+Icon=/home/rbailon/.local/share/applications/icons/google-photos.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=photos.google.com

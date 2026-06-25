@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# nirakase:summary=Hyprland status control in Waybar, as well as its toggle switch
+
+SERVICE="hypridle.service"
+STATUS=$(systemctl --user is-active $SERVICE)
+
+if [ "$1" == "toggle" ]; then
+  if [ "$STATUS" == "active" ]; then
+    systemctl --user stop $SERVICE
+    notify-send -u low "   Stop locking computer when idle"
+  else
+    systemctl --user start $SERVICE
+    notify-send -u low "   Now locking computer when idle"
+  fi
+
+  pkill -RTMIN+9 waybar
+  exit 0
+fi
+
+if [ "$STATUS" == "active" ]; then
+  echo '{"text": "", "class": "active", "tooltip": "Hypridle: Enabled"}'
+else
+  echo '{"text": "", "class": "inactive", "tooltip": "Hypridle: Disabled"}'
+fi

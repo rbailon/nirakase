@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Gmail
+Comment=Web Application for Google Gmail
+Exec=nirakase-launch-webapp "https://mail.google.com/mail/"
+Icon=/home/rbailon/.local/share/applications/icons/google-gmail.png
+Terminal=false
+Categories=Network;WebBrowser;NirakaseWebApp;
+StartupWMClass=mail.google.com

@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+
+# Nirakase: Package Uninstaller (Official & AUR)
+# Interactive unified search for all locally installed packages (Pacman and AUR)
+# with information preview, ANSI colors, and multiple uninstallation support.
+
+set -uo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No color
+
+# Check if fzf is installed
+if ! command -v fzf >/dev/null 2>&1; then
+    echo -e "${RED}[Error] fzf is not installed. Install it with: sudo pacman -S fzf${NC}"
+    exit 1
+fi
+
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "${CYAN}             Nirakase Package Remover (Pacman & AUR)                    ${NC}"
+echo -e "${PURPLE}========================================================================${NC}"
+
+echo -e "${BLUE}[System]${NC} Loading installed packages..."
+
+# 1. Get list of installed official packages with their repositories
+official_list=$(pacman -Sl 2>/dev/null | awk '
+    BEGIN {
+        cyan = "\033[36m"
+        reset = "\033[0m"
+    }
+    {
+        if (index($0, "[instal") > 0 || index($0, "installed") > 0) {
+            print cyan "[" $1 "]" reset " " $2
+        }
+    }
+')
+
+# 2. Get list of installed foreign (AUR) packages
+aur_list=$(pacman -Qm 2>/dev/null | awk '
+    BEGIN {
+        cyan = "\033[36m"
+        reset = "\033[0m"
+    }
+    {
+        print cyan "[aur]" reset " " $1
+    }
+')
+
+# 3. Combine and sort alphabetically by package name (column 2)
+combined_list=$(printf "%s\n%s" "$official_list" "$aur_list" | grep -v '^$' | sort -k 2)
+
+if [ -z "$combined_list" ]; then
+    echo -e "${YELLOW}No installed packages were found on the system.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to exit..."
+    exit 0
+fi
+
+# Launch fzf with ANSI colors, bottom preview on column 2, and border labels
+selected_packages=$(echo "$combined_list" | fzf \
+    --ansi \
+    --multi \
+    --prompt="Package(s) to remove > " \
+    --height=95% \
+    --border \
+    --reverse \
+    --info=inline \
+    --preview="pacman -Qi {2}" \
+    --preview-window="bottom:60%:wrap" \
+    --preview-label=" [ Local Installation Information | Alt+J/K: Scroll ] " \
+    --preview-label-pos=bottom \
+    --border-label=" [ TAB: Mark | ALT+J/K: Scroll Info | ENTER: Remove | ESC: Cancel ] " \
+    --border-label-pos=bottom \
+    --bind="alt-j:preview-down,alt-k:preview-up")
+
+if [ -z "$selected_packages" ]; then
+    echo -e "${RED}Operation cancelled. Nothing was removed.${NC}"
+    exit 0
+fi
+
+# Extract package names from the second column
+declare -a pkgs_to_remove
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    pkg_name=$(echo "$line" | awk '{print $2}')
+    pkgs_to_remove+=("$pkg_name")
+done <<< "$selected_packages"
+
+echo -e "\n${YELLOW}You have selected the following packages to uninstall:${NC}"
+for p in "${pkgs_to_remove[@]}"; do
+    echo -e "  - ${RED}󰆴${NC} $p"
+done
+
+read -rp "$(echo -e "\n${RED}Proceed with uninstallation and removal of orphan dependencies? [y/N]: ${NC}")" confirm
+confirm="$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')"
+
+if [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
+    echo -e "${BLUE}Operation cancelled. Nothing was uninstalled.${NC}"
+    exit 0
+fi
+
+# Execute uninstallation with sudo pacman -Rns (works for both official and AUR packages)
+echo -e "\n${BLUE}[System]${NC} Running: sudo pacman -Rns ${pkgs_to_remove[*]}"
+if sudo pacman -Rns "${pkgs_to_remove[@]}"; then
+    notify-send -u normal -i software-properties "Nirakase Package Remover" "Removed successfully: ${pkgs_to_remove[*]}"
+    echo -e "\n${GREEN}[✔] Uninstallation completed successfully.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit 0
+else
+    exit_code=$?
+    notify-send -u critical -i dialog-error "Nirakase Package Remover" "Failed to remove: ${pkgs_to_remove[*]}"
+    echo -e "\n${RED}[Error] Uninstallation failed with exit code $exit_code.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit $exit_code
+fi

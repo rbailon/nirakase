@@ -1,0 +1,393 @@
+/* --- Waybar Styles for Nirakase --- */
+
+/* @import "../../.cache/matugen/colors.css"; */
+@define-color rosewater #f5e0dc;
+@define-color flamingo #f2cdcd;
+@define-color pink #f5c2e7;
+@define-color mauve #cba6f7;
+@define-color red #f38ba8;
+@define-color maroon #eba0ac;
+@define-color peach #fab387;
+@define-color yellow #f9e2af;
+@define-color green #a6e3a1;
+@define-color teal #94e2d5;
+@define-color sky #89dceb;
+@define-color sapphire #74c7ec;
+@define-color blue #89b4fa;
+@define-color lavender #b4befe;
+@define-color text #cdd6f4;
+@define-color subtext1 #bac2de;
+@define-color subtext0 #a6adc8;
+@define-color overlay2 #9399b2;
+@define-color overlay1 #7f849c;
+@define-color overlay0 #6c7086;
+@define-color surface2 #585b70;
+@define-color surface1 #45475a;
+@define-color surface0 #313244;
+@define-color base #1e1e2e;
+@define-color mantle #181825;
+@define-color crust #11111b;
+
+@define-color background @base;
+@define-color on_background @green;
+@define-color on_background @subtext0;
+@define-color error_container @red;
+@define-color error @red;
+@define-color primary @mauve;
+@define-color tertiary @lavender;
+@define-color secondary @subtext0;
+
+
+@define-color color0 @surface_bright;
+@define-color color1 @on_primary_container;
+@define-color color4 @on_primary_fixed;
+
+
+* {
+	background-color: transparent;
+
+	border: none;
+	border-radius: 99px;
+
+  font-family: "JetbrainsMono Nerd Font";
+	font-size: 12px;
+  font-weight: normal;
+
+	min-height: 10px;
+}
+
+window {}
+window#waybar {
+  color: @text;
+}
+window#waybar > box {
+	/* transition-property: background-color; */
+	/* transition-duration: .5s; */
+}
+
+.modules-left, .modules-center, .modules-right {}
+.modules-center {
+	background-color: @base;
+	border: 0.65px solid alpha(@on_background, .3);
+	padding: 2px 2px 2px 8px; /* top right bottom left */
+}
+
+
+
+/* Style for the main tooltip container */
+tooltip {
+    background: alpha(@base, 0.95); 
+    border: 1px solid @mauve;
+    border-radius: 8px;
+}
+
+/* Style for the text inside the tooltip */
+tooltip label {
+	/* font-size: 0.8em; */
+}
+
+tooltip box {
+	color: @on_background;
+	margin: 2px;
+}
+
+
+/* --- UPDATES INFO --- */
+#custom-update {
+  padding-right: 8px;
+}
+
+/* --- WEATHER INFO --- */
+#custom-weather {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* --- IDLE INDICATOR --- */
+#custom-idle-indicator {
+  background: alpha(@sapphire, 0.2);
+  border: 0.65px solid alpha(@sapphire, 0.3);
+  margin: 2 0;
+  padding: 0 16px 0 10px;
+}
+
+#custom-idle-indicator.inactive {
+  background: alpha(@peach, 0.2);
+  border-color: alpha(@peach, 0.3);
+  color: @peach;
+}
+
+/* --- NOTIFICATIONS INDICATOR --- */
+#custom-notifications-indicator {
+  background: alpha(@teal, 0.2);
+  border: 0.65px solid alpha(@teal, 0.3);
+  margin: 2 0;
+  padding: 0 14px 0 12px;
+}
+
+#custom-notifications-indicator.dnd, #custom-notifications-indicator.do-not-disturb {
+  background: alpha(@pink, 0.2);
+  border-color: alpha(@pink, 0.3);
+  color: @pink;
+  padding: 0 14px 0 8px;
+}
+
+/* --- BLUETOOTH --- */
+#bluetooth {
+  padding: 0px 5px;
+}
+
+/* --- NETWORK --- */
+#network {
+  padding: 0px 5px;
+}
+
+/* --- PULSEAUDIO --- */
+#pulseaudio {
+  padding: 0px 5px;
+}
+/* Output Module (Speaker/Headphones) */
+#pulseaudio {
+    color: @on_background;
+    /* margin: 2px 2px; */
+    padding: 0px 8px;
+	margin: 0px;
+	/* font-size: 0.8em; */
+    /* padding: 0px; */
+}
+
+/* When connecting headphones (change color or style if desired) */
+#pulseaudio.headphone {
+    color: #b4befe; /* Lavanda para auriculares */
+}
+
+/* Input Module (Microphone) */
+#pulseaudio.microphone {
+    color: @on_background;
+}
+
+/* Mute States */
+#pulseaudio.muted {
+    color: @error_container;
+}
+#pulseaudio.microphone.source-muted {
+	padding: 0px 5px 0px 4px;
+    color: @error_container;
+}
+
+/* Prevent speaker mute from "bleeding" into the microphone */
+#pulseaudio.microphone {
+    color: @color0;
+    color: @on_background;
+}
+
+/* --- CPU --- */
+#cpu {
+  padding: 0px 5px;
+}
+
+/* --- GROUP TRAY EXPANDER - EXPAND-ICON --- */
+#custom-expand-icon {
+  padding: 0px 5px 0px 25px;
+}
+
+
+
+
+
+/* --- WORKSPACES --- */
+#workspaces {
+  padding: 0px 20px;
+  margin: 0px;
+}
+
+#workspaces button {
+  color: @subtext0;
+  padding: 0px 2px;
+	margin: 2px 2px;
+  transition: all 0.3s cubic-bezier(.55,-0.68,.48,1.68);
+	/* box-shadow: inset 0 -3px transparent; */
+}
+
+/* Active Workspace (The one you are currently viewing) */
+#workspaces button.active, #workspaces button.active:hover {
+	background: linear-gradient(90deg, alpha(@mauve, 0.7), alpha(@lavender, 0.7));
+  color: @surface0;
+}
+
+/* Hover effect (optional) */
+#workspaces button:hover {
+  color: @lavender;
+  box-shadow: inherit;
+  text-shadow: inherit;
+}
+
+/* Remove underline or default styles for buttons in Waybar */
+#workspaces button.focused {
+  background-color: transparent;
+	background: linear-gradient(90deg, @mauve, @lavender);
+	color: @surface0;
+	padding: 0px 10px;
+	margin: 2px 2px;
+  box-shadow: none;
+}
+
+#workspaces button.empty{
+    color: alpha(@subtext0, 0.40);
+}
+
+#workspaces button.empty.focused {
+	color: @base;
+}
+
+
+/* Brightness Module */
+#backlight {
+    color: @color0;
+    padding: 0px 1px;
+    margin: 0px;
+}
+
+/* If you want the color to change when it is very low (night mode) */
+#backlight.low {
+    color: #fab387; /* Softer orange */
+}
+
+/* --- CONTENEDOR DEL TRAY --- */
+#tray {
+    /* background: alpha(@color1, .7); */
+    /* background: alpha(@color4, .95); */
+    /* color: @color0; */
+    /* padding: 0 10px; */
+    padding: 0px 5px;
+    /* margin: 2px 2px; */
+    /* border: 1px solid alpha(@color0, 0.9);  */
+
+    /* Define the icon font here */
+    font-family: "JetBrainsMono Nerd Font", FontAwesome, Roboto, Helvetica, Arial, sans-serif;
+    color: red;
+}
+
+/* Style for system tray icons */
+#tray > .passive {
+    /* Specific styles for passive icons */
+}
+
+#tray > .active {
+    /* Specific styles for active icons */
+}
+
+#tray > .needs-attention {
+    /* Styles for icons requiring attention */
+}
+
+
+/* --- DROPDOWN MENUS (Context Menus) --- */
+/* Waybar uses GTK for tray menus. This styles the menu that appears on click */
+menu {
+  background-color: alpha(@base, .95);
+	border: 1px solid @mauve;
+  border-radius: 8px;
+  padding: 5px;
+}
+
+menu separator {
+  margin: 2px 18px;
+  border: 0;
+  border-top: 1px solid @overlay0;
+  min-height: 1px;
+}
+
+
+menu menuitem {
+	color: @color0;
+	color: @on_background;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+menu menuitem:hover {
+    background: @overlay0;
+	border-radius: 0px;
+	color: @secondary;
+}
+
+menu menuitem:disabled {
+    background: @surface_bright;
+	border-radius: 0px;
+	color: @overlay0;
+}
+
+/* --- BATTERY --- */
+#battery {
+	background: linear-gradient(90deg, @mauve, @lavender);
+	color: @base;
+  padding: 0px 14px;
+  margin: 2px;
+}
+
+#battery.charging, #battery.plugged {
+    color: @base;
+}
+
+#battery.warning:not(.charging),
+#battery.critical:not(.charging) {
+    color: red;
+}
+
+#battery.critical:not(.charging) {
+  background: transparent;
+  /* Optional: blinking animation for critical state */
+  animation-name: blink;
+  animation-duration: 0.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+/* --- CLOCK --- */
+#clock {
+    padding: 0px 8px;
+}
+
+/* --- POWER BUTTON --- */
+/* #custom-power { */
+/* 	color: @on_background; */
+/*   padding: 0px 8px; */
+/* } */
+/**/
+/* #custom-power:hover { */
+/* } */
+
+/* Animation for critical battery */
+@keyframes blink {
+    to {
+        background-color: @error;
+        /* color: @error; */
+    }
+}
+
+@keyframes blink_background {
+  to {
+    background-color: transparent;
+  }
+}
+/*
+button {
+	box-shadow: inset 0 -3px transparent;
+	border: none;
+	border-radius: 0;
+}
+
+button:hover {
+	background: inherit;
+	box-shadow: inset 0 -3px #ffffff;
+}
+*/
+
+
+
+
+
+
+

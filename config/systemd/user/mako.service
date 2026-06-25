@@ -1,0 +1,14 @@
+[Unit]
+Description=Mako - Wayland Notification Daemon in Nirakase
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/mako
+# Allows reloading the configuration cleanly
+ExecReload=/usr/bin/makoctl reload
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

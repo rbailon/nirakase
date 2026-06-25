@@ -1,0 +1,29 @@
+nirakase (parent folder)
+├── config/                 <-- Folders that go in ~/.config/ (linked at folder level)
+│   ├── foot/               <-- Foot terminal emulator
+│   ├── hypridle/           <-- Idle daemon
+│   ├── mako/               <-- Notifications
+│   ├── niri/               <-- Niri Wayland compositor (includes config.d/)
+│   ├── swaylock/           <-- Screen locker
+│   ├── swayosd/            <-- Brightness and volume HUD
+│   ├── systemd/            <-- Systemd user services (replaces services-systemd)
+│   │   └── user/           <-- Contains mako.service, awww.service, etc.
+│   ├── walker/             <-- Walker runner and menus
+│   └── waybar/             <-- Status bar
+├── local/                  <-- Structure for ~/.local/share/nirakase/
+│   ├── applications/       <-- Preconfigured .desktop shortcuts (copied to ~/.local/share/applications/ and dynamically ported)
+│   ├── bin/                <-- All Nirakase scripts (linked to ~/.local/share/nirakase/bin/)
+│   └── icons/              <-- High-definition icons for WebApps (copied to ~/.local/share/applications/icons/)
+├── system/                 <-- System files (SDDM, Wayland sessions) that require 'sudo'
+│   ├── etc/
+│   │   └── sddm.conf.d/
+│   │       └── autologin.conf
+│   └── usr/
+│       └── local/
+│           └── share/
+│               └── wayland-sessions/
+│                   └── nirakase.desktop
+├── wallpapers/             <-- System wallpapers (linked to ~/.local/share/nirakase/wallpapers/)
+├── install.sh              <-- Smart, idempotent, portable installer script with backups
+├── README.md               <-- Documentation
+└── LICENSE                 <-- License

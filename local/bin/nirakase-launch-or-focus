@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# nirakase:summary=Launch an app or focus an existing window matching a pattern
+# nirakase:args=<window-pattern> <launch-command>
+
+export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd):$PATH"
+
+if (($# == 0)); then
+  echo "Usage: nirakase-launch-or-focus [window-pattern] [launch-command]"
+  exit 1
+fi
+
+WINDOW_PATTERN="$1"
+LAUNCH_COMMAND="${2:-"uwsmc app -- $WINDOW_PATTERN"}"
+WINDOW_ID=$(niri msg -j windows | jq -r --arg p "$WINDOW_PATTERN" '
+    .[] | select(
+        (.app_id // ""  | test("\\b" + $p + "\\b";"i")) or
+        (.title // ""   | test("\\b" + $p + "\\b";"i"))
+    ) | .id 
+  ' | head -n1)
+# WINDOW_ADDRESS=$(hyprctl clients -j | jq -r --arg p "$WINDOW_PATTERN" '.[]|select((.class|test("\\b" + $p + "\\b";"i")) or (.title|test("\\b" + $p + "\\b";"i")))|.address' | head -n1)
+
+if [[ -n $WINDOW_ID ]]; then
+  niri msg action focus-window --id "$WINDOW_ID" >/dev/null 2>&1
+  # hyprctl dispatch "hl.dsp.focus({ window = \"address:$WINDOW_ADDRESS\" })" >/dev/null 2>&1 || hyprctl dispatch focuswindow "address:$WINDOW_ADDRESS"
+else
+  eval exec setsid $LAUNCH_COMMAND
+fi

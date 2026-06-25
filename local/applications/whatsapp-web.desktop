@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=WhatsApp
+Comment=WhatsApp
+Exec=nirakase-launch-webapp https://web.whatsapp.com/
+Terminal=false
+Type=Application
+Icon=/home/rbailon/.local/share/applications/icons/whatsapp-web.png
+StartupNotify=true

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# nirakase:summary=Launch a TUI or focus an existing terminal window for it
+# nirakase:args=<command> [args...]
+
+export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd):$PATH"
+
+APP_ID="org.nirakase.$(basename "$1")"
+LAUNCH_COMMAND="nirakase-launch-tui $@"
+
+exec nirakase-launch-or-focus "$APP_ID" "$LAUNCH_COMMAND"

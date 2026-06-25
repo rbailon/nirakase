@@ -1,0 +1,1 @@
+command = 'wl-copy && notify-send -u low -t 2000 "Nirakase" "Symbol copied to clipboard 󰗄"'

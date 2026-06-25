@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# nirakase:summary=Launch the nirakase wifi controls (provided by the Impala TUI).
+
+export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd):$PATH"
+
+rfkill unblock wifi
+nirakase-launch-or-focus-tui impala

@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+
+# Nirakase: Web Application Remover
+# Allows listing, selecting, and removing one or several WebApps along with their icons.
+
+set -uo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No color
+
+DESKTOP_DIR="${HOME}/.local/share/applications"
+
+# Check if fzf is installed
+if ! command -v fzf >/dev/null 2>&1; then
+    echo -e "${RED}[Error] fzf is not installed. Please install it by running: yay -S fzf${NC}"
+    exit 1
+fi
+
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "${CYAN}             Nirakase WebApp Remover                                    ${NC}"
+echo -e "${PURPLE}========================================================================${NC}\n"
+
+# Search for .desktop files of WebApps
+# Filter those that have the NirakaseWebApp category or invoke nirakase-launch-webapp
+declare -A webapps_names
+declare -A webapps_icons
+declare -A webapps_files
+
+index=0
+while IFS= read -r -d '' file; do
+    if grep -q "nirakase-launch-webapp" "$file" || grep -q "NirakaseWebApp" "$file"; then
+        name=$(grep -E "^Name=" "$file" | head -n 1 | cut -d= -f2-)
+        name=$(echo "$name" | xargs | tr -d '\r') # Clean whitespaces and carriage returns
+        if [ -z "$name" ]; then
+            name=$(basename "$file" .desktop)
+        fi
+        icon=$(grep -E "^Icon=" "$file" | head -n 1 | cut -d= -f2-)
+        
+        # Only index if name is valid
+        if [ -n "$name" ]; then
+            webapps_names[$index]="$name"
+            webapps_icons[$index]="$icon"
+            webapps_files[$index]="$file"
+            index=$((index + 1))
+        fi
+    fi
+done < <(find "$DESKTOP_DIR" -maxdepth 1 -name "*.desktop" -print0 2>/dev/null)
+
+if [ "$index" -eq 0 ]; then
+    echo -e "${YELLOW}No web applications created by Nirakase WebApp Creator were found.${NC}"
+    exit 0
+fi
+
+# Build the list for fzf
+# Format: "Name (file.desktop)"
+fzf_input=""
+for ((i=0; i<index; i++)); do
+    fzf_input+="${webapps_names[$i]} (${webapps_files[$i]##*/})\n"
+done
+
+echo -e "${CYAN}➤ Select the WebApps you wish to remove.${NC}\n"
+
+selected=$(echo -e "$fzf_input" | grep -v '^$' | fzf \
+    --multi \
+    --prompt="WebApps to remove > " \
+    --height=15 \
+    --border \
+    --reverse \
+    --border-label=" [ TAB: Mark | ENTER: Confirm | ESC: Cancel ] " \
+    --border-label-pos=bottom)
+
+if [ -z "$selected" ]; then
+    echo -e "${RED}Operation cancelled. Nothing was removed.${NC}"
+    exit 0
+fi
+
+# Process the selected items
+echo -e "\n${YELLOW}You have selected the following WebApps to remove:${NC}"
+declare -a files_to_remove
+declare -a icons_to_remove
+
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    # Extract the .desktop filename from parentheses
+    desktop_name=$(echo "$line" | sed -e 's/.*(\(.*\))$/\1/')
+    file_path="${DESKTOP_DIR}/${desktop_name}"
+    
+    # Find corresponding original index
+    for ((i=0; i<index; i++)); do
+        if [ "${webapps_files[$i]}" = "$file_path" ]; then
+            echo -e "  - ${RED}✘${NC} ${webapps_names[$i]} (${desktop_name})"
+            files_to_remove+=("$file_path")
+            
+            icon_val="${webapps_icons[$i]}"
+            # Check if icon is an absolute path to our app icons directory
+            if [[ "$icon_val" =~ ^/ ]]; then
+                icons_to_remove+=("$icon_val")
+            fi
+        fi
+    done
+done <<< "$selected"
+
+# Confirm permanent removal
+read -rp "$(echo -e "\n${RED}Are you sure you want to permanently remove these applications and their icons? [y/N]: ${NC}")" confirm
+confirm="$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')"
+
+if [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
+    echo -e "${BLUE}Operation cancelled. Nothing was removed.${NC}"
+    exit 0
+fi
+
+# Proceed with removal
+echo -e "\n${BLUE}[Removing]${NC} Deleting files..."
+declare -a removed_apps
+declare -a failed_apps
+
+for f in "${files_to_remove[@]}"; do
+    if [ -f "$f" ]; then
+        if rm -f "$f"; then
+            echo -e "  ${GREEN}✔${NC} Removed shortcut: ${f##*/}"
+            removed_apps+=("${f##*/}")
+        else
+            echo -e "  ${RED}✘${NC} Failed to remove shortcut: ${f##*/}"
+            failed_apps+=("${f##*/}")
+        fi
+    fi
+done
+
+for icon in "${icons_to_remove[@]}"; do
+    if [ -f "$icon" ]; then
+        if rm -f "$icon"; then
+            echo -e "  ${GREEN}✔${NC} Removed downloaded icon: ${icon##*/}"
+        else
+            echo -e "  ${RED}✘${NC} Failed to remove downloaded icon: ${icon##*/}"
+        fi
+    fi
+done
+
+if [ ${#failed_apps[@]} -eq 0 ]; then
+    notify-send -u normal -i software-properties "Nirakase WebApp Remover" "Removed successfully: ${removed_apps[*]}"
+    echo -e "\n${GREEN}✔ REMOVAL COMPLETED SUCCESSFULLY!${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit 0
+else
+    notify-send -u critical -i dialog-error "Nirakase WebApp Remover" "Failed to remove some webapps: ${failed_apps[*]}"
+    echo -e "\n${RED}[Error] Failed to remove some shortcut files.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit 1
+fi
+

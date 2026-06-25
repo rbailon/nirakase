@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+
+# Nirakase: Package Installer
+# Interactive search for official pacman packages with preview, ANSI colors, and multiple installation support.
+
+set -uo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No color
+
+# Check if fzf is installed
+if ! command -v fzf >/dev/null 2>&1; then
+    echo -e "${RED}[Error] fzf is not installed. Install it with: sudo pacman -S fzf${NC}"
+    exit 1
+fi
+
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "${CYAN}             Nirakase Package Installer (pacman)                        ${NC}"
+echo -e "${PURPLE}========================================================================${NC}"
+
+# Get list of all packages from official repositories
+echo -e "${BLUE}[System]${NC} Loading official package database..."
+packages_list=$(pacman -Sl 2>/dev/null | awk '
+    BEGIN {
+        cyan = "\033[36m"
+        green = "\033[32m"
+        reset = "\033[0m"
+    }
+    {
+        status = (index($0, "[instal") > 0 || index($0, "installed") > 0) ? " " green "󰄬 (Installed)" reset : ""
+        print cyan "[" $1 "]" reset " " $2 status
+    }
+')
+
+if [ -z "$packages_list" ]; then
+    echo -e "${RED}[Error] Could not read the pacman database.${NC}"
+    echo -e "        Try running 'sudo pacman -Sy' first to synchronize databases."
+    echo
+    read -n 1 -s -r -p "Press any key to exit..."
+    exit 1
+fi
+
+# Launch fzf with ANSI colors, bottom preview on column 2, and shortcuts
+selected_packages=$(echo "$packages_list" | fzf \
+    --ansi \
+    --multi \
+    --prompt="Package(s) to install > " \
+    --height=95% \
+    --border \
+    --reverse \
+    --info=inline \
+    --preview="pacman -Si {2}" \
+    --preview-window="bottom:60%:wrap" \
+    --preview-label=" [ Package Information | Alt+J/K: Scroll ] " \
+    --preview-label-pos=bottom \
+    --border-label=" [ TAB: Mark multiple | ENTER: Install | ESC: Cancel ] " \
+    --border-label-pos=bottom \
+    --bind="alt-j:preview-down,alt-k:preview-up")
+
+if [ -z "$selected_packages" ]; then
+    echo -e "${RED}Operation cancelled. Nothing was installed.${NC}"
+    exit 0
+fi
+
+# Extract package names from the second column
+declare -a pkgs_to_install
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    pkg_name=$(echo "$line" | awk '{print $2}')
+    pkgs_to_install+=("$pkg_name")
+done <<< "$selected_packages"
+
+echo -e "\n${YELLOW}You have selected the following packages to install:${NC}"
+for p in "${pkgs_to_install[@]}"; do
+    echo -e "  - ${GREEN}󰏔${NC} $p"
+done
+
+read -rp "$(echo -e "\n${YELLOW}Proceed with installation through pacman? [Y/n]: ${NC}")" confirm
+confirm="$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')"
+
+if [ -n "$confirm" ] && [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
+    echo -e "${RED}Operation cancelled by user.${NC}"
+    exit 0
+fi
+
+# Execute installation with sudo pacman -S
+echo -e "\n${BLUE}[System]${NC} Running: sudo pacman -S ${pkgs_to_install[*]}"
+if sudo pacman -S "${pkgs_to_install[@]}"; then
+    notify-send -u normal -i software-properties "Nirakase Package Installer" "Installed successfully: ${pkgs_to_install[*]}"
+    echo -e "\n${GREEN}[✔] Installation completed successfully.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit 0
+else
+    exit_code=$?
+    notify-send -u critical -i dialog-error "Nirakase Package Installer" "Failed to install: ${pkgs_to_install[*]}"
+    echo -e "\n${RED}[Error] Installation failed with exit code $exit_code.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit $exit_code
+fi

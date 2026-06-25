@@ -1,0 +1,43 @@
+/* --- OSD Styles for Nirakase --- */
+
+/* @import "../omarchy/current/theme/swayosd.css"; */
+
+@define-color background-color #1a1b26;
+@define-color border-color #a9b1d6;
+@define-color label #a9b1d6;
+@define-color image #a9b1d6;
+@define-color progress #7aa2f7;
+
+window {
+    background-color: @background-color;
+    opacity: 0.9;
+    border: 2px solid @border-color;
+    border-radius: 0;
+}
+
+#osd {
+    padding: 16px;
+}
+
+progressbar {
+    /* The empty volume/brightness progress bar */
+    background-color: @progress;
+    border-radius: 0px;
+}
+
+progressbar trough {
+    /* The progress bar track */
+    min-height: 8px;
+    border-radius: 8px;
+}
+
+progressbar block {
+    /* The filled part of the progress bar */
+    background: #89b4fa;
+    border-radius: 8px;
+}
+
+image {
+    /* The icon (speaker, sun, etc.) */
+    color: @image;
+}

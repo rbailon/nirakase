@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# nirakase:summary=Launch a TUI command in the default terminal with nirakase styling
+# nirakase:args=<command> [args...]
+
+export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd):$PATH"
+
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.nirakase.$(basename $1) -e "$1" "${@:2}"

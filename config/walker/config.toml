@@ -1,0 +1,36 @@
+# --- Walker Base Configuration for Nirakase ---
+
+app_id = "walker"
+terminal = "foot"
+# Keep Walker open in the background (very important for speed)
+force_keyboard_focus = true
+
+[ui]
+fullscreen = false
+# Center the search bar slightly above the middle of the screen
+margin_top = 150
+width = 500
+
+[list]
+# Maximum number of results to display
+max_entries = 8
+show_initial_entries = true
+
+# Enable the modules we are interested in
+[modules.applications]
+weight = 100 # Maximum search priority
+
+[modules.clipboard]
+# Walker's native clipboard history
+weight = 50
+max_entries = 15
+
+[modules.runner]
+# Allows running terminal commands directly from the search bar
+weight = 10
+
+# Prefix for our Remmina connections (menus:remmina)
+[[providers.prefixes]]
+prefix = "r:"
+provider = "menus:remmina"
+

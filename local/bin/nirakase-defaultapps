@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+
+# Nirakase: Default Applications Selector (TUI Version)
+# Allows configuring default applications (Web Browser, Terminal, File Manager)
+# by scanning installed .desktop files and choosing via FZF.
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Check fzf
+if ! command -v fzf >/dev/null 2>&1; then
+    echo -e "${RED}[Error] fzf is not installed. Please install it by running: sudo pacman -S fzf${NC}"
+    exit 1
+fi
+
+# Paths
+XDG_TERMINALS_FILE="${HOME}/.config/xdg-terminals.list"
+
+# Functions to get current defaults
+get_current_browser() {
+    local val
+    val=$(xdg-settings get default-web-browser 2>/dev/null || echo "")
+    [ -n "$val" ] && echo "$val" || echo "None"
+}
+
+get_current_terminal() {
+    local val=""
+    if [ -f "$XDG_TERMINALS_FILE" ]; then
+        val=$(head -n 1 "$XDG_TERMINALS_FILE" | xargs)
+    fi
+    [ -n "$val" ] && echo "$val" || echo "None"
+}
+
+get_current_file_manager() {
+    local val
+    val=$(xdg-mime query default inode/directory 2>/dev/null || echo "")
+    [ -n "$val" ] && echo "$val" || echo "None"
+}
+
+# Translate desktop filename to clean Name
+get_app_name_from_desktop() {
+    local desktop_file="$1"
+    [ "$desktop_file" = "None" ] && echo "None" && return
+    
+    for dir in "/usr/share/applications" "${HOME}/.local/share/applications"; do
+        local path="${dir}/${desktop_file}"
+        if [ -f "$path" ]; then
+            local name
+            name=$(grep -E "^Name=" "$path" | head -n 1 | cut -d= -f2-)
+            name=$(echo "$name" | xargs)
+            if [ -n "$name" ]; then
+                echo "$name ($desktop_file)"
+                return
+            fi
+        fi
+    done
+    echo "$desktop_file"
+}
+
+# Scan desktop files
+get_installed_apps() {
+    local filter_type="$1"
+    declare -A seen
+    
+    for dir in "/usr/share/applications" "${HOME}/.local/share/applications"; do
+        [ -d "$dir" ] || continue
+        for file in "$dir"/*.desktop; do
+            [ -f "$file" ] || continue
+            filename=$(basename "$file")
+            [ -n "${seen[$filename]:-}" ] && continue
+            
+            # Smart filtering based on type
+            local is_candidate=false
+            case "$filter_type" in
+                browser)
+                    if grep -qE "Categories=.*(WebBrowser|Network)" "$file" || \
+                       grep -qE "MimeType=.*text/html" "$file" || \
+                       [[ "$filename" =~ (firefox|chrome|chromium|brave|opera|vivaldi|epiphany|librewolf|waterfox|edge) ]]; then
+                        is_candidate=true
+                    fi
+                    ;;
+                terminal)
+                    if grep -qE "Categories=.*TerminalEmulator" "$file" || \
+                       [[ "$filename" =~ (foot|kitty|alacritty|wezterm|gnome-terminal|konsole|xfce4-terminal|termite|urxvt|xterm) ]]; then
+                        is_candidate=true
+                    fi
+                    ;;
+                file_manager)
+                    if grep -qE "MimeType=.*inode/directory" "$file" || \
+                       grep -qE "Categories=.*FileManager" "$file" || \
+                       [[ "$filename" =~ (thunar|nautilus|nemo|dolphin|pcmanfm|caja|doublecmd|krusader) ]]; then
+                        is_candidate=true
+                    fi
+                    ;;
+                all)
+                    is_candidate=true
+                    ;;
+            esac
+            
+            if [ "$is_candidate" = true ]; then
+                seen[$filename]=1
+                name=$(grep -E "^Name=" "$file" | head -n 1 | cut -d= -f2-)
+                name=$(echo "$name" | xargs)
+                [ -n "$name" ] && echo "$name ($filename)"
+            fi
+        done
+    done | sort -f
+}
+
+# Main loop
+while true; do
+    browser_raw=$(get_current_browser)
+    terminal_raw=$(get_current_terminal)
+    filemgr_raw=$(get_current_file_manager)
+    
+    browser=$(get_app_name_from_desktop "$browser_raw")
+    terminal=$(get_app_name_from_desktop "$terminal_raw")
+    filemgr=$(get_app_name_from_desktop "$filemgr_raw")
+    
+    options="🌐 Web Browser     : $browser\n  Terminal        : $terminal\n  File Manager     : $filemgr"
+    
+    choice=$(echo -e "$options" | fzf \
+        --ansi \
+        --prompt="Default Applications > " \
+        --height=10 \
+        --border \
+        --reverse \
+        --header="Select an application type to change" \
+        --border-label=" [ ESC: Exit | ENTER: Select | ↑/↓: Move ] " \
+        --border-label-pos=bottom \
+        --info=hidden)
+        
+    [ -z "$choice" ] && break
+    
+    # Process choice
+    type=""
+    prompt=""
+    case "$choice" in
+        *Browser*)
+            type="browser"
+            prompt="Select Web Browser > "
+            ;;
+        *Terminal*)
+            type="terminal"
+            prompt="Select Terminal > "
+            ;;
+        *File*Manager*)
+            type="file_manager"
+            prompt="Select File Manager > "
+            ;;
+    esac
+    
+    if [ -n "$type" ]; then
+        # Submenu of candidates
+        candidates=$(get_installed_apps "$type")
+        candidates="${candidates}\n[ Show All Applications ]"
+        
+        selected_app=$(echo -e "$candidates" | grep -v '^$' | fzf \
+            --ansi \
+            --prompt="$prompt" \
+            --height=15 \
+            --border \
+            --reverse \
+            --border-label=" [ ESC: Go Back | ENTER: Apply | ↑/↓: Move ] " \
+            --border-label-pos=bottom \
+            --info=hidden)
+            
+        [ -z "$selected_app" ] && continue
+        
+        # If user chooses to show all
+        if [[ "$selected_app" == *"[ Show All Applications ]"* ]]; then
+            all_apps=$(get_installed_apps "all")
+            selected_app=$(echo -e "$all_apps" | grep -v '^$' | fzf \
+                --ansi \
+                --prompt="$prompt" \
+                --height=20 \
+                --border \
+                --reverse \
+                --border-label=" [ ESC: Go Back | ENTER: Apply | ↑/↓: Move ] " \
+                --border-label-pos=bottom \
+                --info=hidden)
+            [ -z "$selected_app" ] && continue
+        fi
+        
+        # Extract filename from parentheses
+        desktop_file=$(echo "$selected_app" | sed -e 's/.*(\(.*\))$/\1/')
+        [ -z "$desktop_file" ] && continue
+        
+        # Apply changes
+        success=false
+        case "$type" in
+            browser)
+                if xdg-settings set default-web-browser "$desktop_file"; then
+                    success=true
+                fi
+                ;;
+            terminal)
+                mkdir -p "$(dirname "$XDG_TERMINALS_FILE")"
+                if echo "$desktop_file" > "$XDG_TERMINALS_FILE"; then
+                    success=true
+                fi
+                ;;
+            file_manager)
+                if xdg-mime default "$desktop_file" inode/directory; then
+                    success=true
+                fi
+                ;;
+        esac
+        
+        # Feedback
+        app_clean_name=$(echo "$selected_app" | cut -d'(' -f1 | xargs)
+        if [ "$success" = true ]; then
+            notify-send -u normal -i software-properties "Default Applications" "Set default $type to: $app_clean_name"
+            echo -e "${GREEN}[✔] Default $type successfully set to $app_clean_name ($desktop_file).${NC}"
+            sleep 1
+        else
+            notify-send -u critical -i dialog-error "Default Applications" "Failed to set default $type"
+            echo -e "${RED}[Error] Failed to apply changes for default $type.${NC}"
+            sleep 2
+        fi
+    fi
+done

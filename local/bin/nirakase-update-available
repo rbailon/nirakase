@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# Nirakase: Update Checker for Waybar
+# Checks for official (pacman) and AUR (yay) updates safely in the background.
+# If there are updates, returns a JSON for Waybar showing the count. Otherwise, returns empty.
+
+set -uo pipefail
+
+# 1. Check official updates safely using checkupdates
+official_updates=""
+if command -v checkupdates >/dev/null 2>&1; then
+    official_updates=$(checkupdates 2>/dev/null || true)
+else
+    # Fallback to pacman -Qu
+    official_updates=$(pacman -Qu 2>/dev/null || true)
+fi
+
+# 2. Check AUR updates safely using yay -Qua
+aur_updates=""
+if command -v yay >/dev/null 2>&1; then
+    aur_updates=$(yay -Qua 2>/dev/null || true)
+fi
+
+# 3. Combine and clean
+combined_updates=$(printf "%s\n%s" "$official_updates" "$aur_updates" | grep -v '^$')
+
+if [ -z "$combined_updates" ]; then
+    # No updates: return empty text so Waybar hides the module
+    echo '{"text": "", "tooltip": "Your system is fully up to date"}'
+    exit 0
+fi
+
+# 4. Count updates
+num_updates=$(echo "$combined_updates" | wc -l | xargs)
+
+# 5. Format detailed list for tooltip
+tooltip_text="Pending updates (${num_updates}):\n$(echo "$combined_updates" | sed 's/"/\\"/g')"
+
+# 6. Output compact JSON for Waybar
+jq -n -c \
+    --arg text " ${num_updates}" \
+    --arg tooltip "$tooltip_text" \
+    '{"text": $text, "tooltip": $tooltip}'

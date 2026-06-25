@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# nirakase:summary=Select and set the system timezone
+# nirakase:requires-sudo=true
+
+echo "Current timezone is: $(cat /etc/timezone)"
+timezone=$(timedatectl list-timezones | gum filter --height 20 --header "Set timezone") || exit 1
+sudo timedatectl set-timezone "$timezone"
+echo "Timezone is now set to $timezone"
+systemctl --user reload waybar

@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+
+# Nirakase: AUR Package Installer (yay)
+# Dynamic interactive search for the Arch User Repository (AUR) with real-time query,
+# information preview, installation indicators, and ANSI color support.
+
+set -uo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No color
+
+# Check if fzf and yay are installed
+if ! command -v fzf >/dev/null 2>&1; then
+    echo -e "${RED}[Error] fzf is not installed. Install it with: sudo pacman -S fzf${NC}"
+    exit 1
+fi
+if ! command -v yay >/dev/null 2>&1; then
+    echo -e "${RED}[Error] yay is not installed. This script requires the AUR helper 'yay'.${NC}"
+    read -n 1 -s -r -p "Press any key to exit..."
+    exit 1
+fi
+
+# Search function that will be exported and called by fzf in real time
+aur_search() {
+    local query="${1:-}"
+    local installed
+    installed=$(pacman -Qm 2>/dev/null | awk '{print $1}')
+    
+    local cyan="\033[36m"
+    local green="\033[32m"
+    local reset="\033[0m"
+    
+    if [ -z "$query" ]; then
+        # If query is empty, show locally installed AUR packages
+        if [ -n "$installed" ]; then
+            echo "$installed" | awk -v cyan="$cyan" -v green="$green" -v reset="$reset" '
+                { print cyan "[aur]" reset " " $1 " " green "󰄬 (Installed)" reset }
+            '
+        fi
+        return
+    fi
+    
+    # Dynamically search AUR using yay
+    yay -Ssq "$query" 2>/dev/null | awk -v inst="$installed" -v cyan="$cyan" -v green="$green" -v reset="$reset" '
+        BEGIN {
+            split(inst, inst_arr, " ")
+            for (i in inst_arr) {
+                installed_set[inst_arr[i]] = 1
+            }
+        }
+        {
+            status = ($1 in installed_set) ? " " green "󰄬 (Installed)" reset : ""
+            print cyan "[aur]" reset " " $1 status
+        }
+    '
+}
+
+# Export the function so fzf subshell can run it
+export -f aur_search
+
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "${CYAN}             Nirakase AUR Package Installer (yay)                       ${NC}"
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "${BLUE}[System]${NC} Connecting to the AUR repository..."
+
+# Launch fzf in disabled dynamic mode with reload linked to query change (change:reload)
+# Initially executes the empty query search which lists locally installed AUR packages
+selected_packages=$(aur_search "" | fzf \
+    --ansi \
+    --disabled \
+    --query="" \
+    --prompt="AUR Search > " \
+    --height=95% \
+    --border \
+    --reverse \
+    --info=inline \
+    --preview="yay -Si {2}" \
+    --preview-window="bottom:60%:wrap" \
+    --preview-label=" [ Package Information (AUR) | Alt+J/K: Scroll ] " \
+    --preview-label-pos=bottom \
+    --border-label=" [ TAB: Mark multiple | ENTER: Install | ESC: Cancel ] " \
+    --border-label-pos=bottom \
+    --bind="change:reload(bash -c 'aur_search {q}')" \
+    --bind="alt-j:preview-down,alt-k:preview-up")
+
+if [ -z "$selected_packages" ]; then
+    echo -e "${RED}Operation cancelled. Nothing was installed.${NC}"
+    exit 0
+fi
+
+# Extract package names from the second column
+declare -a pkgs_to_install
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    pkg_name=$(echo "$line" | awk '{print $2}')
+    pkgs_to_install+=("$pkg_name")
+done <<< "$selected_packages"
+
+echo -e "\n${YELLOW}You have selected the following AUR packages to install:${NC}"
+for p in "${pkgs_to_install[@]}"; do
+    echo -e "  - ${GREEN}󰏗${NC} $p"
+done
+
+read -rp "$(echo -e "\n${YELLOW}Proceed with build and installation via yay? [Y/n]: ${NC}")" confirm
+confirm="$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')"
+
+if [ -n "$confirm" ] && [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
+    echo -e "${RED}Operation cancelled by user.${NC}"
+    exit 0
+fi
+
+# Execute installation with yay -S
+echo -e "\n${BLUE}[AUR]${NC} Running: yay -S ${pkgs_to_install[*]}"
+if yay -S "${pkgs_to_install[@]}"; then
+    notify-send -u normal -i software-properties "Nirakase AUR Installer" "Installed successfully: ${pkgs_to_install[*]}"
+    echo -e "\n${GREEN}[✔] Installation completed successfully.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit 0
+else
+    exit_code=$?
+    notify-send -u critical -i dialog-error "Nirakase AUR Installer" "Failed to install: ${pkgs_to_install[*]}"
+    echo -e "\n${RED}[Error] Installation failed with exit code $exit_code.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit $exit_code
+fi

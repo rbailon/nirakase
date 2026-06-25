@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=ChatGPT
+Comment=ChatGPT
+Exec=nirakase-launch-webapp https://chatgpt.com/
+Terminal=false
+Type=Application
+Icon=/home/rbailon/.local/share/applications/icons/chatgpt.png
+StartupNotify=true

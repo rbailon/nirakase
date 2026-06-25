@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+
+# Nirakase: Main Desktop Menu (FZF Terminal Version with Borders)
+# Interactive terminal interface based on FZF with minimal monochromatic icons (Nerd Fonts)
+# and short keyboard shortcuts aesthetically integrated in FZF's bottom frames.
+
+set -uo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+GRAY='\033[0;90m'
+NC='\033[0m' # No color
+
+# Check if fzf is installed
+if ! command -v fzf >/dev/null 2>&1; then
+    echo -e "${RED}[Error] fzf is not installed. Please install it by running: yay -S fzf${NC}"
+    exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+current_menu="main"
+
+# Helper function to invoke fzf with suitable parameters and border labels
+run_fzf_menu() {
+    local prompt="$1"
+    local options="$2"
+    local header="$3"
+    local border_label="$4"
+    echo -e "$options" | fzf \
+        --ansi \
+        --prompt="$prompt" \
+        --height=12 \
+        --border \
+        --reverse \
+        --header="$header" \
+        --border-label="$border_label" \
+        --border-label-pos=bottom \
+        --info=hidden
+}
+
+# Function to return to the previous menu on escape (exit code 130 of fzf)
+check_fzf_exit() {
+    local status="$1"
+    local parent_menu="$2"
+    if [ "$status" -eq 130 ]; then
+        current_menu="$parent_menu"
+        return 1
+    fi
+    return 0
+}
+
+while true; do
+    case "$current_menu" in
+        main)
+            choice=$(run_fzf_menu "Nirakase > " "󱐋 Trigger\n󰗊 Appearance\n󰗚 Learn\n󰏗 Install\n󰆴 Remove\n󰚰 Update System\n Setup" "Main Menu (Type to filter)" " [ ESC: Exit | ENTER: Select | ↑/↓: Move ] ")
+            
+            # If fzf exits on ESC/Ctrl+C, close the menu
+            if [ $? -eq 130 ] || [ -z "$choice" ]; then
+                echo -e "${BLUE}Closing Nirakase menu. Have a nice day!${NC}"
+                exit 0
+            fi
+            
+            case "$choice" in
+                *Trigger*)
+                    current_menu="trigger"
+                    ;;
+                *Appearance*)
+                    current_menu="appearance"
+                    ;;
+                *Learn*)
+                    current_menu="learn"
+                    ;;
+                *Install*)
+                    current_menu="install"
+                    ;;
+                *Remove*)
+                    current_menu="remove"
+                    ;;
+                *Update*)
+                    # Being already in a terminal, run the updater in the foreground of this session
+                    clear
+                    "${SCRIPT_DIR}/nirakase-update-system"
+                    ;;
+                *Setup*)
+                    current_menu="setup"
+                    ;;
+            esac
+            ;;
+
+        trigger)
+            choice=$(run_fzf_menu "Nirakase > Trigger > " "󰹑 Capture\n󰘳 Others (Pending)" "Trigger Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            
+            if ! check_fzf_exit $? "main"; then
+                continue
+            fi
+            
+            if [ -z "$choice" ]; then
+                current_menu="main"
+                continue
+            fi
+            
+            case "$choice" in
+                *Capture*)
+                    current_menu="capture"
+                    ;;
+                *Others*)
+                    echo -e "${YELLOW}[Info] This section is currently pending development.${NC}"
+                    sleep 1.5
+                    ;;
+            esac
+            ;;
+
+        appearance)
+            choice=$(run_fzf_menu "Nirakase > Appearance > " "󰸉  Wallpaper Selector (GUI)         ${GRAY}[Mod+Alt+W]${NC}" "Appearance Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            
+            if ! check_fzf_exit $? "main"; then
+                continue
+            fi
+            
+            if [ -z "$choice" ]; then
+                current_menu="main"
+                continue
+            fi
+            
+            case "$choice" in
+                *Wallpaper*)
+                    current_bg=$(strings ~/.cache/awww/*/* 2>/dev/null | grep -m1 -o '/home/[^ ]*' || echo "")
+                    if [[ -z "$current_bg" && -f "$HOME/.local/share/nirakase/wallpapers/wallpaper.png" ]]; then
+                        current_bg="$HOME/.local/share/nirakase/wallpapers/wallpaper.png"
+                    fi
+                    selection=$(nirakase-menu-images --selected "$current_bg" 2>/dev/null || true)
+                    if [[ -n "$selection" && -f "$selection" ]]; then
+                        nirakase-wallpaper "$selection"
+                    fi
+                    exit 0
+                    ;;
+            esac
+            ;;
+
+        learn)
+            choice=$(run_fzf_menu "Nirakase > Learn > " "󰗚 Niri\n󰗚 Waybar\n󰗚 Neovim\n󰗚 Arch\n󰗚 Devhints.io" "Learn Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            
+            if ! check_fzf_exit $? "main"; then
+                continue
+            fi
+            
+            if [ -z "$choice" ]; then
+                current_menu="main"
+                continue
+            fi
+            
+            local url=""
+            case "$choice" in
+                *Niri*)          url="https://niri-wm.github.io/niri/" ;;
+                *Waybar*)        url="https://github.com/Alexays/Waybar/wiki" ;;
+                *Neovim*)        url="https://www.lazyvim.org/keymaps" ;;
+                *Arch*)          url="https://wiki.archlinux.org/title/Main_page" ;;
+                *Devhints.io*)   url="https://devhints.io" ;;
+            esac
+
+            if [ -n "$url" ]; then
+                niri msg action spawn -- "${SCRIPT_DIR}/nirakase-launch-webapp" "$url"
+                exit 0
+            fi
+            ;;
+
+        capture)
+            choice=$(run_fzf_menu "Nirakase > Trigger > Capture > " "󰹑 Screenshot (Area)             ${GRAY}[Print]${NC}\n󰹑 Screenshot (Window)           ${GRAY}[Alt+Print]${NC}\n󰹑 Screenshot (Monitor)          ${GRAY}[Mod+Print]${NC}\n󰃉 Color Picker                  ${GRAY}[Mod+Alt+Print]${NC}" "Capture Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            
+            if ! check_fzf_exit $? "trigger"; then
+                continue
+            fi
+            
+            if [ -z "$choice" ]; then
+                current_menu="trigger"
+                continue
+            fi
+            
+            local type=""
+            case "$choice" in
+                *Area*)    type="area" ;;
+                *Window*)  type="window" ;;
+                *Monitor*) type="monitor" ;;
+                *Color*)   type="color" ;;
+            esac
+
+            if [ -n "$type" ]; then
+                if [ "$type" = "color" ]; then
+                    echo -e "${BLUE}[Trigger]${NC} Launching Color Picker..."
+                    niri msg action spawn -- bash -c "sleep 0.2 && (pkill hyprpicker || hyprpicker -a)"
+                else
+                    echo -e "${BLUE}[Trigger]${NC} Launching $type screenshot..."
+                    niri msg action spawn -- nirakase-capture-screenshot "$type"
+                fi
+                exit 130
+            fi
+            ;;
+
+        install)
+            choice=$(run_fzf_menu "Nirakase > Install > " "󰏗 System Package\n󰏗 AUR Package\n󰖟 Create WebApp" "Install Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            
+            if ! check_fzf_exit $? "main"; then
+                continue
+            fi
+            
+            if [ -z "$choice" ]; then
+                current_menu="main"
+                continue
+            fi
+            
+            case "$choice" in
+                *System*Package*)
+                    clear
+                    "${SCRIPT_DIR}/nirakase-pkg-install"
+                    ;;
+                *AUR*)
+                    clear
+                    "${SCRIPT_DIR}/nirakase-pkg-aur-install"
+                    ;;
+                *Create*WebApp*)
+                    clear
+                    "${SCRIPT_DIR}/nirakase-webapp-creator"
+                    ;;
+            esac
+            ;;
+
+        remove)
+            choice=$(run_fzf_menu "Nirakase > Remove > " "󰏗 Remove Package\n󰖟 Remove WebApp" "Remove Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            
+            if ! check_fzf_exit $? "main"; then
+                continue
+            fi
+            
+            if [ -z "$choice" ]; then
+                current_menu="main"
+                continue
+            fi
+            
+            case "$choice" in
+                *Remove*Package*|*Package*)
+                    clear
+                    "${SCRIPT_DIR}/nirakase-pkg-remove"
+                    ;;
+                *Remove*WebApp*|*WebApp*)
+                    clear
+                    "${SCRIPT_DIR}/nirakase-webapp-remove"
+                    ;;
+            esac
+            ;;
+
+        setup)
+            choice=$(run_fzf_menu "Nirakase > Setup > " "󰓃  Audio\n󰖩  Wifi\n󰂯  Bluetooth\n󰓅  Power Profile\n󰀻  Default Applications" "Setup Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            
+            if ! check_fzf_exit $? "main"; then
+                continue
+            fi
+            
+            if [ -z "$choice" ]; then
+                current_menu="main"
+                continue
+            fi
+            
+            case "$choice" in
+                *Audio*)
+                    clear
+                    if command -v wiremix >/dev/null 2>&1; then
+                        wiremix
+                    else
+                        echo -e "${RED}[Error] wiremix is not installed.${NC}"
+                        sleep 2
+                    fi
+                    ;;
+                *Wifi*)
+                    clear
+                    rfkill unblock wifi 2>/dev/null || true
+                    if command -v impala >/dev/null 2>&1; then
+                        impala
+                    else
+                        echo -e "${RED}[Error] impala is not installed.${NC}"
+                        sleep 2
+                    fi
+                    ;;
+                *Bluetooth*)
+                    clear
+                    rfkill unblock bluetooth 2>/dev/null || true
+                    if command -v bluetui >/dev/null 2>&1; then
+                        bluetui
+                    else
+                        echo -e "${RED}[Error] bluetui is not installed.${NC}"
+                        sleep 2
+                    fi
+                    ;;
+                *Power*)
+                    clear
+                    "${SCRIPT_DIR}/nirakase-power"
+                    ;;
+                *Default*|*Applications*)
+                    clear
+                    "${SCRIPT_DIR}/nirakase-defaultapps"
+                    ;;
+            esac
+            ;;
+    esac
+done

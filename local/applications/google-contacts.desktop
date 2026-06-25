@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Contacts
+Comment=Web Application for Google Contacts
+Exec=nirakase-launch-webapp "https://contacts.google.com"
+Icon=/home/rbailon/.local/share/applications/icons/google-contacts.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=contacts.google.com

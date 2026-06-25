@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Youtube
+Comment=Web Application for Youtube
+Exec=nirakase-launch-webapp "https://youtube.com"
+Icon=/home/rbailon/.local/share/applications/icons/youtube.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=youtube.com

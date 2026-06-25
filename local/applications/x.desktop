@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=X
+Comment=X
+Exec=nirakase-launch-webapp https://x.com/
+Terminal=false
+Type=Application
+Icon=/home/rbailon/.local/share/applications/icons/x.png
+StartupNotify=true

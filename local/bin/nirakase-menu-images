@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+
+# ========================================================================
+#          Nirakase: Daemonized Image Selector Client
+# ========================================================================
+# Highly optimized Bash client that manages a thumbnail cache, signatures
+# wallpapers, and transmits data using JSON over a UNIX socket to Quickshell.
+# ========================================================================
+
+set -euo pipefail
+
+# Configuration
+WALLPAPERS_DIR="$HOME/.local/share/nirakase/wallpapers"
+CACHE_DIR="$HOME/.cache/nirakase/image-selector"
+SOCKET_PATH="${XDG_RUNTIME_DIR:-/run/user/$UID}/nirakase-image-selector.sock"
+
+# Defaults
+selected_image=""
+
+usage() {
+    echo "Usage: $(basename "$0") [--selected <path>]"
+    echo "  --selected: Path to the currently selected wallpaper"
+}
+
+# Parse Arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --selected)
+            if (( $# < 2 )); then
+                usage >&2
+                exit 1
+            fi
+            selected_image="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
+
+mkdir -p "$CACHE_DIR/thumbs"
+
+# 1. Check Directory Signature for Cache Invalidation
+if [[ -d "$WALLPAPERS_DIR" ]]; then
+    # Generate signature using file paths and mtimes
+    sig=$(find -L "$WALLPAPERS_DIR" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) -printf "%p:%T@\n" | sort | md5sum | cut -d' ' -f1)
+else
+    echo "[Error] Wallpaper directory not found at: $WALLPAPERS_DIR" >&2
+    exit 1
+fi
+
+# Load or Rebuild Thumbnail Cache Index
+index_file="$CACHE_DIR/index.json"
+sig_file="$CACHE_DIR/signature"
+
+rebuild_cache=true
+if [[ -f "$sig_file" && -f "$index_file" ]]; then
+    if [[ "$sig" == "$(cat "$sig_file" 2>/dev/null)" ]]; then
+        rebuild_cache=false
+    fi
+fi
+
+if [[ "$rebuild_cache" == "true" ]]; then
+    # Find all wallpaper images
+    mapfile -d $'\0' images < <(find -L "$WALLPAPERS_DIR" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) -print0 | sort -z)
+    
+    json_images="[]"
+    
+    if (( ${#images[@]} > 0 )); then
+        images_array=()
+        for img in "${images[@]}"; do
+            # Format display name: capitalise and replace separators with space
+            base_name=$(basename "$img")
+            name_no_ext="${base_name%.*}"
+            formatted_name=$(echo "${name_no_ext//[-_]/ }" | sed -E 's/\b(.)/\U\1/g')
+            
+            # Generate stable thumbnail path using md5 of the image path
+            img_hash=$(printf "%s" "$img" | md5sum | cut -d' ' -f1)
+            thumb_path="$CACHE_DIR/thumbs/$img_hash.jpg"
+            
+            # Generate thumbnail if missing or older than original
+            if [[ ! -f "$thumb_path" || "$img" -nt "$thumb_path" ]]; then
+                magick "$img[0]" -auto-orient -resize '1536x864^' -gravity center -extent '1536x864' -strip -quality 82 "$thumb_path" 2>/dev/null || cp "$img" "$thumb_path"
+            fi
+            
+            # Escape strings for JSON
+            real_img_path=$(realpath "$img" 2>/dev/null || echo "$img")
+            escaped_path="${real_img_path//\\/\\\\}"
+            escaped_path="${escaped_path//\"/\\\"}"
+            escaped_thumb="${thumb_path//\\/\\\\}"
+            escaped_thumb="${escaped_thumb//\"/\\\"}"
+            escaped_name="${formatted_name//\\/\\\\}"
+            escaped_name="${escaped_name//\"/\\\"}"
+            
+            images_array+=("{\"path\":\"$escaped_path\",\"thumb\":\"$escaped_thumb\",\"name\":\"$escaped_name\"}")
+        done
+        
+        # Build JSON array
+        json_images="[$(IFS=,; echo "${images_array[*]}")]"
+    fi
+    
+    # Save cache
+    echo "$json_images" > "$index_file"
+    echo "$sig" > "$sig_file"
+fi
+
+# 2. Setup Temporary Files for IPC Communication
+selection_file=$(mktemp)
+done_file=$(mktemp)
+rm -f "$done_file" # We want the done_file to NOT exist initially
+
+# Ensure cleanup on exit
+cleanup() {
+    rm -f "$selection_file" "$done_file"
+}
+trap cleanup EXIT
+
+# Expand selected image path to absolute if set
+if [[ -n "$selected_image" ]]; then
+    selected_image=$(realpath "$selected_image" 2>/dev/null || echo "")
+fi
+
+# Load pre-built image list JSON
+json_images=$(cat "$index_file")
+
+# Construct final request JSON payload
+escaped_sel="${selected_image//\\/\\\\}"
+escaped_sel="${escaped_sel//\"/\\\"}"
+escaped_selfile="${selection_file//\\/\\\\}"
+escaped_selfile="${escaped_selfile//\"/\\\"}"
+escaped_donefile="${done_file//\\/\\\\}"
+escaped_donefile="${escaped_donefile//\"/\\\"}"
+
+payload="{\"selected\":\"$escaped_sel\",\"selectionFile\":\"$escaped_selfile\",\"doneFile\":\"$escaped_donefile\",\"images\":$json_images}"
+
+# 3. Wake / Start Quickshell Daemon
+if [[ ! -S "$SOCKET_PATH" ]]; then
+    # Try starting user systemd service first, fallback to direct daemon
+    if systemctl --user is-enabled nirakase-image-selector.service >/dev/null 2>&1; then
+        systemctl --user start nirakase-image-selector.service
+    else
+        quickshell -d -p "$HOME/.config/quickshell/background-switcher.qml" >/dev/null 2>&1 &
+    fi
+    
+    # Bounded wait for socket creation
+    for ((i = 0; i < 60; i++)); do
+        [[ -S "$SOCKET_PATH" ]] && break
+        sleep 0.05
+    done
+fi
+
+if [[ ! -S "$SOCKET_PATH" ]]; then
+    echo "[Error] Could not connect to the image selector daemon." >&2
+    exit 1
+fi
+
+# 4. Transmit Payload to the daemon via UNIX socket using socat
+if ! echo "$payload" | socat -u - "UNIX-CONNECT:$SOCKET_PATH" 2>/dev/null; then
+    # Socket was stale, cleanup and retry once
+    rm -f "$SOCKET_PATH"
+    if systemctl --user is-enabled nirakase-image-selector.service >/dev/null 2>&1; then
+        systemctl --user restart nirakase-image-selector.service
+    else
+        quickshell -d -p "$HOME/.config/quickshell/background-switcher.qml" >/dev/null 2>&1 &
+    fi
+    
+    for ((i = 0; i < 60; i++)); do
+        [[ -S "$SOCKET_PATH" ]] && break
+        sleep 0.05
+    done
+    
+    if ! echo "$payload" | socat -u - "UNIX-CONNECT:$SOCKET_PATH" 2>/dev/null; then
+        echo "[Error] Could not send request to the daemon." >&2
+        exit 1
+    fi
+fi
+
+# 5. Wait for selection completion
+while [[ ! -e "$done_file" ]]; do
+    sleep 0.05
+done
+
+# Output selection if file is not empty
+if [[ -s "$selection_file" ]]; then
+    cat "$selection_file"
+    exit 0
+else
+    # Canceled or closed without selection
+    exit 1
+fi

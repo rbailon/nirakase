@@ -1,0 +1,14 @@
+[Unit]
+Description=Walker Daemon - Lanzador de aplicaciones para Nirakase
+PartOf=graphical-session.target
+After=graphical-session.target elephant.service
+Requires=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+ExecStart=/usr/bin/walker --gapplication-service
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,5 @@
+#!/bin/bash
+# Usage: nirakase-wallpaper /path/to/image.jpg
+# We use awww to apply the wallpaper with an elegant transition
+
+awww img "$1" --transition-type random --transition-step 90

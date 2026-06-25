@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Telegram Web
+Comment=Web Application for Telegram Web
+Exec=nirakase-launch-webapp "https://web.telegram.org"
+Icon=/home/rbailon/.local/share/applications/icons/telegram-web.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=web.telegram.org

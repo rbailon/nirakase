@@ -1,0 +1,13 @@
+[Unit]
+Description=SwayOSD Server - On-screen indicators for Nirakase
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+ExecStart=/usr/bin/swayosd-server
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

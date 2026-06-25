@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+# Nirakase: Unified Screenshot Utility for Niri / Wayland
+# Automatically creates the Pictures/Screenshots directory, captures the screen,
+# copies the result to the clipboard, and launches Satty for annotations.
+# Supports arguments: "area" (default), "window" (focused window), and "monitor" (focused monitor).
+
+set -uo pipefail
+
+# Define screenshot target directory
+SCREENSHOT_DIR="${HOME}/Pictures/Screenshots"
+
+# Ensure the directory exists
+if [ ! -d "$SCREENSHOT_DIR" ]; then
+    mkdir -p "$SCREENSHOT_DIR"
+fi
+
+# Define unique timestamped path
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+SCREENSHOT_PATH="${SCREENSHOT_DIR}/Screenshot_${TIMESTAMP}.png"
+
+# Check dependencies
+if ! command -v grim >/dev/null 2>&1; then
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -u critical "Nirakase Screenshot" "Error: 'grim' is not installed."
+    fi
+    exit 1
+fi
+
+MODE="${1:-area}"
+
+# Give the launching window or terminal a brief moment to unmap/disappear
+sleep 0.2
+
+case "$MODE" in
+    window)
+        # Capture the focused window. Fallback to slurp interactive selection if Niri IPC is unavailable.
+        if command -v niri >/dev/null 2>&1 && niri msg focused-window >/dev/null 2>&1; then
+            if ! niri msg action screenshot-window --path "$SCREENSHOT_PATH"; then
+                exit 1
+            fi
+        else
+            if command -v slurp >/dev/null 2>&1; then
+                if ! grim -g "$(slurp)" "$SCREENSHOT_PATH"; then
+                    exit 0
+                fi
+            else
+                exit 1
+            fi
+        fi
+        ;;
+
+    monitor)
+        # Capture the focused screen/monitor. Fallback to standard grim full-screen capture if Niri IPC is unavailable.
+        if command -v niri >/dev/null 2>&1 && niri msg focused-output >/dev/null 2>&1; then
+            if ! niri msg action screenshot-screen --path "$SCREENSHOT_PATH"; then
+                exit 1
+            fi
+        else
+            if ! grim "$SCREENSHOT_PATH"; then
+                exit 1
+            fi
+        fi
+        ;;
+
+    area|*)
+        # Interactive region capture
+        if ! command -v slurp >/dev/null 2>&1; then
+            if command -v notify-send >/dev/null 2>&1; then
+                notify-send -u critical "Nirakase Screenshot" "Error: 'slurp' is not installed."
+            fi
+            exit 1
+        fi
+
+        # Run slurp to select region and grim to grab the image
+        if ! grim -g "$(slurp)" "$SCREENSHOT_PATH"; then
+            # If slurp is cancelled (e.g. via ESC), exit quietly
+            exit 0
+        fi
+        ;;
+esac
+
+# Wait for the screenshot file to be fully written to disk by the compositor (up to 5 seconds)
+TIMEOUT=50
+while [ ! -s "$SCREENSHOT_PATH" ]; do
+    sleep 0.1
+    TIMEOUT=$((TIMEOUT - 1))
+    if [ "$TIMEOUT" -le 0 ]; then
+        if command -v notify-send >/dev/null 2>&1; then
+            notify-send -u critical "Nirakase Screenshot" "Error: The screenshot save operation timed out."
+        fi
+        exit 1
+    fi
+done
+
+# Ensure the image was successfully captured and written
+if [ ! -f "$SCREENSHOT_PATH" ]; then
+    exit 1
+fi
+
+# Copy the captured screenshot to clipboard immediately if possible
+if command -v wl-copy >/dev/null 2>&1; then
+    wl-copy < "$SCREENSHOT_PATH"
+fi
+
+# Launch Satty editor if available for annotations
+if command -v satty >/dev/null 2>&1; then
+    satty --filename "$SCREENSHOT_PATH" \
+          --output-filename "$SCREENSHOT_PATH" \
+          --early-exit \
+          --copy-command 'wl-copy'
+else
+    # Simple notify feedback if Satty is not installed
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "Pantallazo Guardado" "Captura guardada en Pictures/Screenshots" -i camera -t 3000
+    fi
+fi

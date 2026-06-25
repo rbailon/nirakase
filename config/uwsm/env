@@ -1,0 +1,44 @@
+# ~/.local/share/nirakase/config/uwsm/env
+
+export NIRAKASE_LOGO="
+███╗   ██╗██╗██████╗  █████╗ ██╗  ██╗ █████╗ ███████╗███████╗
+████╗  ██║██║██╔══██╗██╔══██╗██║ ██╔╝██╔══██╗██╔════╝██╔════╝
+██╔██╗ ██║██║██████╔╝███████║█████╔╝ ███████║███████╗█████╗  
+██║╚██╗██║██║██╔══██╗██╔══██║██╔═██╗ ██╔══██║╚════██║██╔══╝  
+██║ ╚████║██║██║  ██║██║  ██║██║  ██╗██║  ██║███████║███████╗
+╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝
+                                                             "
+
+# --- Wayland Base Variables ---
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=niri
+export XDG_SESSION_DESKTOP=niri
+
+# --- Force applications to use native Wayland ---
+export MOZ_ENABLE_WAYLAND=1         # Firefox
+export QT_QPA_PLATFORM="wayland;xcb" # Qt Apps (KDE/CachyOS)
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export GDK_BACKEND="wayland,x11"    # GTK Apps (GNOME)
+export OZONE_PLATFORM_HINT=auto     # Electron-based apps (VSCode, Discord, etc.)
+
+export CLUTTER_BACKEND=wayland
+export SDL_VIDEODRIVER=wayland
+
+# --- SSH Agent Configuration (We will discuss this in step 2) ---
+export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
+
+
+# Desktop Theming & Assets (Yaru theme matching)
+#export GTK_THEME=Yaru-dark
+#export XCURSOR_THEME=Yaru
+#export XCURSOR_SIZE=24
+
+export OMARCHY_PATH=$HOME/.local/share/omarchy # Temporary line for research
+export NIRAKASE_PATH=$HOME/.local/share/nirakase
+export PATH=$OMARCHY_PATH/bin:$NIRAKASE_PATH/bin:$PATH:$HOME/.local/bin
+
+export TERMINAL=xdg-terminal-exec
+export EDITOR=nvim
+
+# Activate mise if present on the system
+# omarchy-cmd-present mise && eval "$(mise activate bash --shims)"

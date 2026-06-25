@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+
+# Nirakase: System Updater
+# Synchronizes and searches for available updates from official and AUR repositories,
+# allowing to update everything, select specific packages, or cancel.
+
+set -uo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No color
+
+# Check dependencies
+if ! command -v fzf >/dev/null 2>&1; then
+    echo -e "${RED}[Error] fzf is not installed. Install it with: sudo pacman -S fzf${NC}"
+    exit 1
+fi
+if ! command -v yay >/dev/null 2>&1; then
+    echo -e "${RED}[Error] yay is not installed. 'yay' is required for AUR updates.${NC}"
+    exit 1
+fi
+
+echo -e "${PURPLE}========================================================================${NC}"
+echo -e "${CYAN}             Nirakase System Updater (Pacman & AUR)                     ${NC}"
+echo -e "${PURPLE}========================================================================${NC}\n"
+
+echo -e "${BLUE}[System]${NC} Checking for available updates..."
+
+# Get official updates
+official_updates=""
+if command -v checkupdates >/dev/null 2>&1; then
+    official_updates=$(checkupdates 2>/dev/null || true)
+else
+    official_updates=$(pacman -Qu 2>/dev/null || true)
+fi
+
+# Get AUR updates
+aur_updates=$(yay -Qua 2>/dev/null || true)
+
+# Combine updates
+combined_updates=$(printf "%s\n%s" "$official_updates" "$aur_updates" | grep -v '^$')
+
+if [ -z "$combined_updates" ]; then
+    echo -e "${GREEN}✔ Excellent! Your system is fully up to date.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to exit..."
+    exit 0
+fi
+
+# Count number of updates
+num_updates=$(echo "$combined_updates" | wc -l)
+echo -e "${GREEN}[✔] Detected ${num_updates} available updates.${NC}\n"
+
+# Show update options to the user
+echo -e "${YELLOW}What do you want to do?${NC}"
+echo -e "  [1] 󰚰  Update entire system (Recommended)"
+echo -e "  [2] 󰏖  Update only official packages"
+echo -e "  [3] 🌌  Update only AUR packages"
+echo -e "  [4] 󰏗  Select specific packages to update"
+echo
+
+echo -ne "${CYAN}➤ Choose an option [1-4] (or press ESCAPE to cancel): ${NC}"
+
+while true; do
+    # Read a single character silently and instantly
+    read -r -n 1 -s option
+    
+    # Check if ESCAPE, 'q', or 'c' was pressed
+    if [[ "$option" == $'\e' ]] || [[ "$option" =~ ^([qQcCaA])$ ]]; then
+        echo -e "\n${RED}Operation cancelled.${NC}"
+        exit 0
+    fi
+    
+    if [[ "$option" == "1" ]]; then
+        echo -e "1"
+        # Update entire system
+        echo -e "\n${BLUE}[System]${NC} Starting full system update via yay..."
+        if yay -Syu; then
+            notify-send -u normal -i software-properties "Nirakase System Updater" "System updated successfully."
+            pkill -RTMIN+7 waybar 2>/dev/null || true
+            echo -e "\n${GREEN}[✔] Full system update completed successfully.${NC}"
+            echo
+            read -n 1 -s -r -p "Press any key to continue..."
+            exit 0
+        else
+            exit_code=$?
+            notify-send -u critical -i dialog-error "Nirakase System Updater" "Full system update failed."
+            echo -e "\n${RED}[Error] Update failed with exit code $exit_code.${NC}"
+            echo
+            read -n 1 -s -r -p "Press any key to continue..."
+            exit $exit_code
+        fi
+    fi
+    
+    if [[ "$option" == "2" ]]; then
+        echo -e "2"
+        # Update only official packages
+        echo -e "\n${BLUE}[System]${NC} Starting official packages update via pacman..."
+        if sudo pacman -Syu; then
+            notify-send -u normal -i software-properties "Nirakase System Updater" "Official packages updated successfully."
+            pkill -RTMIN+7 waybar 2>/dev/null || true
+            echo -e "\n${GREEN}[✔] Official packages update completed successfully.${NC}"
+            echo
+            read -n 1 -s -r -p "Press any key to continue..."
+            exit 0
+        else
+            exit_code=$?
+            notify-send -u critical -i dialog-error "Nirakase System Updater" "Official packages update failed."
+            echo -e "\n${RED}[Error] Update failed with exit code $exit_code.${NC}"
+            echo
+            read -n 1 -s -r -p "Press any key to continue..."
+            exit $exit_code
+        fi
+    fi
+    
+    if [[ "$option" == "3" ]]; then
+        echo -e "3"
+        # Update only AUR packages
+        echo -e "\n${BLUE}[AUR]${NC} Starting AUR packages update via yay..."
+        if yay -Sua; then
+            notify-send -u normal -i software-properties "Nirakase System Updater" "AUR packages updated successfully."
+            pkill -RTMIN+7 waybar 2>/dev/null || true
+            echo -e "\n${GREEN}[✔] AUR packages update completed successfully.${NC}"
+            echo
+            read -n 1 -s -r -p "Press any key to continue..."
+            exit 0
+        else
+            exit_code=$?
+            notify-send -u critical -i dialog-error "Nirakase System Updater" "AUR packages update failed."
+            echo -e "\n${RED}[Error] Update failed with exit code $exit_code.${NC}"
+            echo
+            read -n 1 -s -r -p "Press any key to continue..."
+            exit $exit_code
+        fi
+    fi
+    
+    if [[ "$option" == "4" ]]; then
+        echo -e "4"
+        break
+    fi
+done
+
+# If option 4 was selected, format the list for fzf with ANSI colors
+fzf_input=$(echo "$combined_updates" | awk '
+    BEGIN {
+        cyan = "\033[36m"
+        yellow = "\033[33m"
+        reset = "\033[0m"
+    }
+    {
+        # Input format: pkgname old_ver -> new_ver
+        print cyan $1 reset " (" $2 " " yellow "󰁍" reset " " $4 ")"
+    }
+')
+
+# Launch fzf with ANSI colors, bottom preview on column 1, and border labels
+selected_packages=$(echo "$fzf_input" | fzf \
+    --ansi \
+    --multi \
+    --prompt="Package(s) to update > " \
+    --height=95% \
+    --border \
+    --reverse \
+    --info=inline \
+    --preview="pacman -Si {1} 2>/dev/null || yay -Si {1}" \
+    --preview-window="bottom:60%:wrap" \
+    --preview-label=" [ Update Details | Alt+J/K: Scroll ] " \
+    --preview-label-pos=bottom \
+    --border-label=" [ TAB: Mark multiple | ENTER: Update | ESC: Cancel ] " \
+    --border-label-pos=bottom \
+    --bind="alt-j:preview-down,alt-k:preview-up")
+
+if [ -z "$selected_packages" ]; then
+    echo -e "${RED}Operation cancelled. Nothing was updated.${NC}"
+    exit 0
+fi
+
+# Extract package names from the first column
+declare -a pkgs_to_update
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    pkg_name=$(echo "$line" | awk '{print $1}')
+    pkgs_to_update+=("$pkg_name")
+done <<< "$selected_packages"
+
+echo -e "\n${YELLOW}You have selected the following packages to update:${NC}"
+for p in "${pkgs_to_update[@]}"; do
+    echo -e "  - ${GREEN}󰚰${NC} $p"
+done
+
+read -rp "$(echo -e "\n${GREEN}Proceed with selective update? [Y/n]: ${NC}")" confirm
+confirm="$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')"
+
+if [ -n "$confirm" ] && [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
+    echo -e "${RED}Operation cancelled by user.${NC}"
+    exit 0
+fi
+
+# Execute selective update via yay -S
+echo -e "\n${BLUE}[System]${NC} Running: yay -S ${pkgs_to_update[*]}"
+if yay -S "${pkgs_to_update[@]}"; then
+    notify-send -u normal -i software-properties "Nirakase System Updater" "Selected packages updated successfully."
+    pkill -RTMIN+7 waybar 2>/dev/null || true
+    echo -e "\n${GREEN}[✔] Selected packages update completed successfully.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit 0
+else
+    exit_code=$?
+    notify-send -u critical -i dialog-error "Nirakase System Updater" "Selected packages update failed."
+    echo -e "\n${RED}[Error] Update failed with exit code $exit_code.${NC}"
+    echo
+    read -n 1 -s -r -p "Press any key to continue..."
+    exit $exit_code
+fi

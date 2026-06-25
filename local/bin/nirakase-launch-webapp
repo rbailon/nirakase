@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+# Nirakase: Web Application Launcher
+# Generic launcher to run webapps in application mode (without browser borders, tabs, or address bar)
+
+set -euo pipefail
+
+# Check arguments
+if [ -z "${1:-}" ]; then
+    echo -e "Usage: nirakase-launch-webapp <URL>"
+    exit 1
+fi
+
+URL="$1"
+
+# Function to run the browser under UWSM control if active
+run_app() {
+    local cmd=("$@")
+    # Bypass 'uwsm app' for browsers to prevent systemd scope isolation from
+    # breaking the browser's single-instance IPC mechanism.
+    exec "${cmd[@]}"
+}
+
+# Try to dynamically detect the default browser command from XDG settings
+default_desktop=$(xdg-settings get default-web-browser 2>/dev/null || echo "")
+browser_cmd=""
+
+if [ -n "$default_desktop" ]; then
+    for dir in "/usr/share/applications" "${HOME}/.local/share/applications"; do
+        desktop_path="${dir}/${default_desktop}"
+        if [ -f "$desktop_path" ]; then
+            # Extract Exec line, take first word, and clean the path
+            exec_line=$(grep -E "^Exec=" "$desktop_path" | head -n 1 | cut -d= -f2-)
+            browser_cmd=$(echo "$exec_line" | awk '{print $1}' | xargs basename 2>/dev/null || echo "")
+            break
+        fi
+    done
+fi
+
+# Choose the Chromium-based browser to execute
+use_cmd=""
+if [ -n "$browser_cmd" ] && [[ "$browser_cmd" =~ (chrome|chromium|brave|opera|vivaldi|edge) ]] && command -v "$browser_cmd" >/dev/null 2>&1; then
+    use_cmd="$browser_cmd"
+else
+    # Force Chromium-based fallback if the default is Firefox or invalid
+    if command -v chromium >/dev/null 2>&1; then
+        use_cmd="chromium"
+    elif command -v google-chrome-stable >/dev/null 2>&1; then
+        use_cmd="google-chrome-stable"
+    elif command -v brave-browser >/dev/null 2>&1; then
+        use_cmd="brave-browser"
+    fi
+fi
+
+# Launch using native app mode if a Chromium-based browser is available
+if [ -n "$use_cmd" ]; then
+    run_app "$use_cmd" --app="$URL"
+else
+    # Ultimate fallback to xdg-open if no Chromium-based browser is installed
+    if command -v xdg-open >/dev/null 2>&1; then
+        run_app xdg-open "$URL"
+    else
+        echo "Error: No Chromium-based web browser or xdg-open was found on the system." >&2
+        exit 1
+    fi
+fi

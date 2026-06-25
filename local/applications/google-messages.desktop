@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Messages
+Comment=Web Application for Google Messages
+Exec=nirakase-launch-webapp "https://messages.google.com/web/conversations"
+Icon=/home/rbailon/.local/share/applications/icons/google-messages.png
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=messages.google.com

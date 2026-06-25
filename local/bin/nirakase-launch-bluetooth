@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# nirakase:summary=Launch the nirakase bluetooth controls TUI (provided by bluetui).
+
+export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd):$PATH"
+
+rfkill unblock bluetooth
+exec nirakase-launch-or-focus-tui bluetui
