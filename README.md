@@ -29,7 +29,7 @@ nirakase/
 To deploy the Nirakase environment on your system, it is recommended to clone the repository to a temporary folder and run the installer:
 
 ```bash
-git clone https://github.com/yourusername/nirakase.git /tmp/nirakase
+git clone https://github.com/rbailon/nirakase.git /tmp/nirakase
 cd /tmp/nirakase
 chmod +x install.sh
 ./install.sh
