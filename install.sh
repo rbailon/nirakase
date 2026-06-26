@@ -58,31 +58,66 @@ fi
 # 1. Install System Dependencies
 echo -e "${GREEN}[1/5] Synchronizing system dependencies...${NC}"
 
-required_packages=(
-    niri uwsm git xdg-utils xdg-terminal-exec 
+# Separate official packages from AUR-only packages
+official_packages=(
+    niri uwsm git xdg-utils
     xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk 
-    foot waybar mako swayosd awww walker fzf hypridle 
+    foot waybar mako swayosd awww fzf hypridle 
     playerctl brightnessctl power-profiles-daemon polkit-gnome network-manager-applet 
-    nwg-look qt5ct qt6ct kvantum yaru-icon-theme ttf-jetbrains-mono-nerd jq
+    nwg-look qt5ct qt6ct kvantum ttf-jetbrains-mono-nerd jq
     chromium imagemagick socat wl-clipboard hyprpicker
 )
 
-# Special: Verify if swaylock or swaylock-effects is already installed, if not, install swaylock-effects
+aur_packages=(
+    xdg-terminal-exec
+    walker
+    yaru-icon-theme
+)
+
+# Special: Verify if swaylock or swaylock-effects is already installed, if not, install swaylock-effects (from AUR)
 if ! pacman -Qq swaylock-effects >/dev/null 2>&1 && ! pacman -Qq swaylock >/dev/null 2>&1; then
-    required_packages+=("swaylock-effects")
+    aur_packages+=("swaylock-effects")
 fi
 
-pkgs_to_install=()
-for pkg in "${required_packages[@]}"; do
+official_to_install=()
+for pkg in "${official_packages[@]}"; do
     if ! pacman -Qq "$pkg" >/dev/null 2>&1; then
-        pkgs_to_install+=("$pkg")
+        official_to_install+=("$pkg")
     fi
 done
 
-if [ ${#pkgs_to_install[@]} -gt 0 ]; then
-    echo -e "  ${BLUE}[System]${NC} Installing missing dependencies: ${pkgs_to_install[*]}"
-    sudo pacman -S --needed --noconfirm "${pkgs_to_install[@]}"
-else
+aur_to_install=()
+for pkg in "${aur_packages[@]}"; do
+    if ! pacman -Qq "$pkg" >/dev/null 2>&1; then
+        aur_to_install+=("$pkg")
+    fi
+done
+
+# Install official packages
+if [ ${#official_to_install[@]} -gt 0 ]; then
+    echo -e "  ${BLUE}[System]${NC} Installing missing official dependencies: ${official_to_install[*]}"
+    sudo pacman -S --needed --noconfirm "${official_to_install[@]}"
+fi
+
+# Install AUR packages
+if [ ${#aur_to_install[@]} -gt 0 ]; then
+    # Bootstrapping paru if it is not installed
+    if ! command -v paru >/dev/null 2>&1; then
+        echo -e "  ${YELLOW}[!]${NC} paru (AUR helper) is required but not installed. Setting up paru-bin..."
+        sudo pacman -S --needed --noconfirm base-devel git
+        TEMP_DIR=$(mktemp -d)
+        echo -e "  ${BLUE}[System]${NC} Cloning paru-bin repository..."
+        git clone https://aur.archlinux.org/paru-bin.git "$TEMP_DIR/paru-bin"
+        echo -e "  ${BLUE}[System]${NC} Building and installing paru-bin..."
+        (cd "$TEMP_DIR/paru-bin" && makepkg -si --noconfirm)
+        rm -rf "$TEMP_DIR"
+    fi
+
+    echo -e "  ${BLUE}[System]${NC} Installing missing AUR dependencies: ${aur_to_install[*]}"
+    paru -S --needed --noconfirm "${aur_to_install[@]}"
+fi
+
+if [ ${#official_to_install[@]} -eq 0 ] && [ ${#aur_to_install[@]} -eq 0 ]; then
     echo -e "  ${GREEN}[✔]${NC} All system dependencies are already installed."
 fi
 

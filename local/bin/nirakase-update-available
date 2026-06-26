@@ -16,10 +16,10 @@ else
     official_updates=$(pacman -Qu 2>/dev/null || true)
 fi
 
-# 2. Check AUR updates safely using yay -Qua
+# 2. Check AUR updates safely using paru -Qua
 aur_updates=""
-if command -v yay >/dev/null 2>&1; then
-    aur_updates=$(yay -Qua 2>/dev/null || true)
+if command -v paru >/dev/null 2>&1; then
+    aur_updates=$(paru -Qua 2>/dev/null || true)
 fi
 
 # 3. Combine and clean

@@ -21,8 +21,8 @@ if ! command -v fzf >/dev/null 2>&1; then
     echo -e "${RED}[Error] fzf is not installed. Install it with: sudo pacman -S fzf${NC}"
     exit 1
 fi
-if ! command -v yay >/dev/null 2>&1; then
-    echo -e "${RED}[Error] yay is not installed. 'yay' is required for AUR updates.${NC}"
+if ! command -v paru >/dev/null 2>&1; then
+    echo -e "${RED}[Error] paru is not installed. 'paru' is required for AUR updates.${NC}"
     exit 1
 fi
 
@@ -41,7 +41,7 @@ else
 fi
 
 # Get AUR updates
-aur_updates=$(yay -Qua 2>/dev/null || true)
+aur_updates=$(paru -Qua 2>/dev/null || true)
 
 # Combine updates
 combined_updates=$(printf "%s\n%s" "$official_updates" "$aur_updates" | grep -v '^$')
@@ -80,8 +80,8 @@ while true; do
     if [[ "$option" == "1" ]]; then
         echo -e "1"
         # Update entire system
-        echo -e "\n${BLUE}[System]${NC} Starting full system update via yay..."
-        if yay -Syu; then
+        echo -e "\n${BLUE}[System]${NC} Starting full system update via paru..."
+        if paru -Syu; then
             notify-send -u normal -i software-properties "Nirakase System Updater" "System updated successfully."
             pkill -RTMIN+7 waybar 2>/dev/null || true
             echo -e "\n${GREEN}[✔] Full system update completed successfully.${NC}"
@@ -122,8 +122,8 @@ while true; do
     if [[ "$option" == "3" ]]; then
         echo -e "3"
         # Update only AUR packages
-        echo -e "\n${BLUE}[AUR]${NC} Starting AUR packages update via yay..."
-        if yay -Sua; then
+        echo -e "\n${BLUE}[AUR]${NC} Starting AUR packages update via paru..."
+        if paru -Sua; then
             notify-send -u normal -i software-properties "Nirakase System Updater" "AUR packages updated successfully."
             pkill -RTMIN+7 waybar 2>/dev/null || true
             echo -e "\n${GREEN}[✔] AUR packages update completed successfully.${NC}"
@@ -168,7 +168,7 @@ selected_packages=$(echo "$fzf_input" | fzf \
     --border \
     --reverse \
     --info=inline \
-    --preview="pacman -Si {1} 2>/dev/null || yay -Si {1}" \
+    --preview="pacman -Si {1} 2>/dev/null || paru -Si {1}" \
     --preview-window="bottom:60%:wrap" \
     --preview-label=" [ Update Details | Alt+J/K: Scroll ] " \
     --preview-label-pos=bottom \
@@ -202,9 +202,9 @@ if [ -n "$confirm" ] && [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
     exit 0
 fi
 
-# Execute selective update via yay -S
-echo -e "\n${BLUE}[System]${NC} Running: yay -S ${pkgs_to_update[*]}"
-if yay -S "${pkgs_to_update[@]}"; then
+# Execute selective update via paru -S
+echo -e "\n${BLUE}[System]${NC} Running: paru -S ${pkgs_to_update[*]}"
+if paru -S "${pkgs_to_update[@]}"; then
     notify-send -u normal -i software-properties "Nirakase System Updater" "Selected packages updated successfully."
     pkill -RTMIN+7 waybar 2>/dev/null || true
     echo -e "\n${GREEN}[✔] Selected packages update completed successfully.${NC}"

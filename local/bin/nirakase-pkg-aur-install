@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Nirakase: nirakase-pkg-aur-install
-# Description: Interactive AUR package installer utilizing yay and FZF.
+# Description: Interactive AUR package installer utilizing paru and FZF.
 # License: MIT License | Copyright (c) 2026-present rbailon
 # ==============================================================================
 
@@ -16,13 +16,13 @@ CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No color
 
-# Check if fzf and yay are installed
+# Check if fzf and paru are installed
 if ! command -v fzf >/dev/null 2>&1; then
     echo -e "${RED}[Error] fzf is not installed. Install it with: sudo pacman -S fzf${NC}"
     exit 1
 fi
-if ! command -v yay >/dev/null 2>&1; then
-    echo -e "${RED}[Error] yay is not installed. This script requires the AUR helper 'yay'.${NC}"
+if ! command -v paru >/dev/null 2>&1; then
+    echo -e "${RED}[Error] paru is not installed. This script requires the AUR helper 'paru'.${NC}"
     read -n 1 -s -r -p "Press any key to exit..."
     exit 1
 fi
@@ -47,8 +47,8 @@ aur_search() {
         return
     fi
     
-    # Dynamically search AUR using yay
-    yay -Ssq "$query" 2>/dev/null | awk -v inst="$installed" -v cyan="$cyan" -v green="$green" -v reset="$reset" '
+    # Dynamically search AUR using paru
+    paru -Ssq "$query" 2>/dev/null | awk -v inst="$installed" -v cyan="$cyan" -v green="$green" -v reset="$reset" '
         BEGIN {
             split(inst, inst_arr, " ")
             for (i in inst_arr) {
@@ -66,7 +66,7 @@ aur_search() {
 export -f aur_search
 
 echo -e "${PURPLE}========================================================================${NC}"
-echo -e "${CYAN}             Nirakase AUR Package Installer (yay)                       ${NC}"
+echo -e "${CYAN}             Nirakase AUR Package Installer (paru)                      ${NC}"
 echo -e "${PURPLE}========================================================================${NC}"
 echo -e "${BLUE}[System]${NC} Connecting to the AUR repository..."
 
@@ -81,7 +81,7 @@ selected_packages=$(aur_search "" | fzf \
     --border \
     --reverse \
     --info=inline \
-    --preview="yay -Si {2}" \
+    --preview="paru -Si {2}" \
     --preview-window="bottom:60%:wrap" \
     --preview-label=" [ Package Information (AUR) | Alt+J/K: Scroll ] " \
     --preview-label-pos=bottom \
@@ -108,7 +108,7 @@ for p in "${pkgs_to_install[@]}"; do
     echo -e "  - ${GREEN}󰏗${NC} $p"
 done
 
-read -rp "$(echo -e "\n${YELLOW}Proceed with build and installation via yay? [Y/n]: ${NC}")" confirm
+read -rp "$(echo -e "\n${YELLOW}Proceed with build and installation via paru? [Y/n]: ${NC}")" confirm
 confirm="$(echo "$confirm" | xargs | tr '[:upper:]' '[:lower:]')"
 
 if [ -n "$confirm" ] && [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
@@ -116,9 +116,9 @@ if [ -n "$confirm" ] && [[ ! "$confirm" =~ ^(y|yes)$ ]]; then
     exit 0
 fi
 
-# Execute installation with yay -S
-echo -e "\n${BLUE}[AUR]${NC} Running: yay -S ${pkgs_to_install[*]}"
-if yay -S "${pkgs_to_install[@]}"; then
+# Execute installation with paru -S
+echo -e "\n${BLUE}[AUR]${NC} Running: paru -S ${pkgs_to_install[*]}"
+if paru -S "${pkgs_to_install[@]}"; then
     notify-send -u normal -i software-properties "Nirakase AUR Installer" "Installed successfully: ${pkgs_to_install[*]}"
     echo -e "\n${GREEN}[✔] Installation completed successfully.${NC}"
     echo

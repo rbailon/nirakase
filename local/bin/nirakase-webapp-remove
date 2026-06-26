@@ -20,7 +20,7 @@ DESKTOP_DIR="${HOME}/.local/share/applications"
 
 # Check if fzf is installed
 if ! command -v fzf >/dev/null 2>&1; then
-    echo -e "${RED}[Error] fzf is not installed. Please install it by running: yay -S fzf${NC}"
+    echo -e "${RED}[Error] fzf is not installed. Please install it by running: paru -S fzf${NC}"
     exit 1
 fi
 
