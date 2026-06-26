@@ -180,6 +180,12 @@ fi
 safe_symlink "$REPO_DIR/local/bin" "$HOME/.local/share/nirakase/bin"
 safe_symlink "$REPO_DIR/wallpapers" "$HOME/.local/share/nirakase/wallpapers"
 
+# Create default wallpaper.png symlink pointing to 1378545.jpg if not present
+if [ ! -f "$HOME/.local/share/nirakase/wallpapers/wallpaper.png" ] && [ ! -L "$HOME/.local/share/nirakase/wallpapers/wallpaper.png" ]; then
+    ln -sf "1378545.jpg" "$HOME/.local/share/nirakase/wallpapers/wallpaper.png"
+    echo -e "  ${GREEN}[✔]${NC} Configured default wallpaper symlink (1378545.jpg)"
+fi
+
 # Ensure all scripts are executable
 chmod +x "$REPO_DIR"/local/bin/*
 
