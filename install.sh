@@ -74,6 +74,9 @@ official_packages=(
 aur_packages=(
     xdg-terminal-exec
     walker
+    elephant
+    elephant-providerlist
+    elephant-desktopapplications
     yaru-icon-theme
 )
 
@@ -221,6 +224,13 @@ fi
 echo -e "\n${GREEN}[5/5] Installing system configurations (SUDO)...${NC}"
 sudo mkdir -p /usr/local/share/wayland-sessions/
 sudo cp "$REPO_DIR/system/usr/local/share/wayland-sessions/nirakase.desktop" /usr/local/share/wayland-sessions/
+
+# Configure default terminal for xdg-terminal-exec if not set
+mkdir -p "$HOME/.config"
+if [ ! -f "$HOME/.config/xdg-terminals.list" ]; then
+    echo "foot.desktop" > "$HOME/.config/xdg-terminals.list"
+    echo -e "  ${GREEN}[✔]${NC} Configured Foot as the default terminal"
+fi
 
 echo -e "\nConfiguring Autologin in SDDM for user $USER..."
 sudo mkdir -p /etc/sddm.conf.d/
