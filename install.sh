@@ -58,6 +58,9 @@ fi
 # 1. Install System Dependencies
 echo -e "${GREEN}[1/5] Synchronizing system dependencies...${NC}"
 
+echo -e "  ${BLUE}[System]${NC} Synchronizing package databases..."
+sudo pacman -Sy
+
 # Separate official packages from AUR-only packages
 official_packages=(
     niri uwsm git xdg-utils
