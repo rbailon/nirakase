@@ -26,4 +26,4 @@ spawn-sh-at-startup "uwsm-app -- systemctl --user import-environment $(env | cut
 spawn-sh-at-startup "uwsm-app -- dbus-update-activation-environment --systemd --all"
 
 // Set default wallpaper on the first login of a new installation
-spawn-sh-at-startup "if [ -z \"\$(ls -A \"\$HOME/.cache/awww\" 2>/dev/null)\" ]; then (sleep 2 && uwsm-app -- ~/.local/share/nirakase/bin/nirakase-wallpaper ~/.local/share/nirakase/wallpapers/wallpaper.png); fi"
+spawn-sh-at-startup "if [ -z \"$(ls -A \"$HOME/.cache/awww\" 2>/dev/null)\" ]; then (sleep 2 && uwsm-app -- ~/.local/share/nirakase/bin/nirakase-wallpaper ~/.local/share/nirakase/wallpapers/wallpaper.png); fi"
