@@ -107,6 +107,7 @@ tooltip box {
 #custom-idle-indicator {
   background: alpha(@sapphire, 0.2);
   border: 0.65px solid alpha(@sapphire, 0.3);
+  color:@sapphire;
   margin: 2 0;
   padding: 0 16px 0 10px;
 }
@@ -119,17 +120,18 @@ tooltip box {
 
 /* --- NOTIFICATIONS INDICATOR --- */
 #custom-notifications-indicator {
-  background: alpha(@teal, 0.2);
-  border: 0.65px solid alpha(@teal, 0.3);
+  background: alpha(@green, 0.2);
+  border: 0.65px solid alpha(@green, 0.3);
+  color: @green;
   margin: 2 0;
   padding: 0 14px 0 12px;
 }
 
 #custom-notifications-indicator.dnd, #custom-notifications-indicator.do-not-disturb {
-  background: alpha(@pink, 0.2);
-  border-color: alpha(@pink, 0.3);
-  color: @pink;
-  padding: 0 14px 0 8px;
+  background: alpha(@maroon, 0.2);
+  border-color: alpha(@maroon, 0.3);
+  color: @maroon;
+  padding: 0 16px 0 10px;
 }
 
 /* --- BLUETOOTH --- */
