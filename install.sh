@@ -68,7 +68,7 @@ official_packages=(
     foot waybar mako swayosd awww fzf hypridle 
     playerctl brightnessctl power-profiles-daemon polkit-gnome network-manager-applet 
     nwg-look qt5ct qt6ct kvantum ttf-jetbrains-mono-nerd jq
-    chromium imagemagick socat wl-clipboard hyprpicker
+    chromium neovim imagemagick socat wl-clipboard hyprpicker
 )
 
 aur_packages=(
