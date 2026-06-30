@@ -69,6 +69,7 @@ official_packages=(
     playerctl brightnessctl power-profiles-daemon polkit-gnome network-manager-applet 
     nwg-look qt5ct qt6ct kvantum ttf-jetbrains-mono-nerd jq
     chromium neovim imagemagick socat wl-clipboard hyprpicker
+    wiremix btop gum impala bluetui upower curl pamixer
 )
 
 aur_packages=(
