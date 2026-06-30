@@ -20,3 +20,5 @@ scratch/
 .cache/
 /bin
 /wallpapers/wallpaper.png
+/config/nvim/lazy-lock.json
+
