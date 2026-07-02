@@ -9,16 +9,7 @@
   "margin-bottom": 0,
   "margin-left": 6,
   "margin-right": 6,
-  // "modules-left": ["niri/workspaces"],
-  // "modules-center": ["clock#horizontal", "custom/weather", "custom/update", "custom/voxtype", "custom/screenrecording-indicator", "custom/idle-indicator", "custom/notifications-indicator"],
-  // "modules-right": [
-  //   "group/tray-expander",
-  //   "bluetooth",
-  //   "network",
-  //   "pulseaudio",
-  //   "cpu",
-  //   "battery"
-  // ],
+
   "modules-center": [
     "custom/update", 
     "custom/weather", 
@@ -33,6 +24,7 @@
     "group/tray-expander",
     "battery"
   ],
+
   "niri/workspaces": {
 	  "format": "{icon}",
 	  "format-icons": {
