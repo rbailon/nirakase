@@ -45,8 +45,8 @@ if [ -n "$browser_cmd" ] && [[ "$browser_cmd" =~ (chrome|chromium|brave|opera|vi
     use_cmd="$browser_cmd"
 else
     # Force Chromium-based fallback if the default is Firefox or invalid
-    if command -v brave>/dev/null 2>&1; then
-        use_cmd="brave"
+    if command -v brave-origin>/dev/null 2>&1; then
+        use_cmd="brave-origin"
     elif command -v chromium >/dev/null 2>&1; then
         use_cmd="chromium"
     elif command -v google-chrome-stable >/dev/null 2>&1; then
