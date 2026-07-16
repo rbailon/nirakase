@@ -11,7 +11,7 @@ binds {
 
     // 1. Main Terminal
     Mod+Return hotkey-overlay-title="Open a Terminal" { spawn "uwsm" "app" "--" "xdg-terminal-exec"; }
-    Mod+Alt+Return hotkey-overlay-title="Tmux" { spawn "uwsm-app" "--" "foot" "bash" "-c" "tmux" "attach" "||" "tmux" "new" "-s" "Work";}
+    Mod+Alt+Return hotkey-overlay-title="Tmux" { spawn "uwsm" "app" "--" "foot" "bash" "-c" "tmux" "attach" "||" "tmux" "new" "-s" "Work";}
 
     // 2. Application Launcher
     Mod+Space hotkey-overlay-title="Walker" { spawn "uwsm" "app" "--" "walker";}
@@ -168,7 +168,7 @@ binds {
     Mod+Alt+R hotkey-overlay-title="Remmina menu" { spawn "~/.config/custom/scripts/menu-wofi-remmina.sh"; }
 
     // Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
-    Super+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
+    Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "uwsm" "app" "--" "swaylock"; }
 
     // Use spawn-sh to run a shell command. Do this if you need pipes, multiple commands, etc.
     // Note: the entire command goes as a single argument. It's passed verbatim to `sh -c`.
@@ -180,7 +180,7 @@ binds {
     // or do a four-finger swipe up on a touchpad.
     Mod+O repeat=false { toggle-overview; }
 
-    Mod+Q repeat=false { close-window; }
+
 
     // Alternative commands that move across workspaces when reaching
     // the first or last window in a column.

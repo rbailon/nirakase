@@ -1,38 +1,71 @@
+# ==============================================================================
+# Nirakase: swaylock-effects configuration
+# Theme: Catppuccin Mocha (Elegant Glassmorphism)
+# ==============================================================================
+
+# General Behavior
 daemonize
+ignore-empty-password
 show-failed-attempts
-clock
-screenshot
-effect-blur=13x13
-effect-vignette=0.5:0.5
-color=6272A4
-font="Inter"
-indicator
-indicator-radius=200
-indicator-thickness=20
-line-color=282A36
-ring-color=BD93F9
-inside-color=282A36
-key-hl-color=50FA7B
-separator-color=00000000
-text-color=F8F8F2
-text-caps-lock-color=""
-line-ver-color=BD93F9
-ring-ver-color=BD93F9
-inside-ver-color=282A36
-text-ver-color=8BE9FD
-ring-wrong-color=FF5555
-text-wrong-color=FF5555
-inside-wrong-color=282A36
-inside-clear-color=282A36
-text-clear-color=8BE9FD
-ring-clear-color=8BE9FD
-line-clear-color=8BE9FD
-line-wrong-color=282A36
-bs-hl-color=8BE9FD
+fade-in=0.3
 grace=2
 grace-no-mouse
 grace-no-touch
-datestr=%e %B, %A 
+
+# Background & Visual Effects
+screenshot
+effect-scale=0.5
+effect-blur=7x5
+effect-vignette=0.5:0.5
+
+# Font & Typography
+font="Inter"
+datestr=%A, %d de %B
 timestr=%H:%M
-fade-in=0.4
-ignore-empty-password
+clock
+
+# Indicator Geometry
+indicator
+indicator-radius=120
+indicator-thickness=10
+
+# Color Scheme (Catppuccin Mocha with glassmorphic transparency)
+# Format: <RRGGBBAA> (hex color with alpha channel for transparency)
+
+# Colors - Normal / Idle State
+color=1e1e2e
+inside-color=11111b40
+ring-color=b4befe40
+line-color=00000000
+separator-color=00000000
+text-color=cdd6f4
+
+# Colors - Typing Feedback
+key-hl-color=a6e3a1
+bs-hl-color=f38ba8
+
+# Colors - Verifying Password State
+inside-ver-color=11111b80
+ring-ver-color=89b4fa
+line-ver-color=00000000
+text-ver-color=89b4fa
+
+# Colors - Wrong Password State
+inside-wrong-color=11111b80
+ring-wrong-color=f38ba8
+line-wrong-color=00000000
+text-wrong-color=f38ba8
+
+# Colors - Clear/Reset State
+inside-clear-color=11111b80
+ring-clear-color=fab387
+line-clear-color=00000000
+text-clear-color=fab387
+
+# Colors - Caps Lock Active State
+inside-caps-lock-color=11111b80
+ring-caps-lock-color=f9e2af
+line-caps-lock-color=00000000
+text-caps-lock-color=f9e2af
+caps-lock-key-hl-color=a6e3a1
+caps-lock-bs-hl-color=f38ba8
