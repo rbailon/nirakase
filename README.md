@@ -2,6 +2,9 @@
 
 Nirakase is a minimal, elegant, and high-performance Wayland desktop environment configuration designed for Arch Linux / CachyOS, powered by the **Niri** window manager, **Waybar**, and interactive **FZF** terminal menus.
 
+> !NOTE
+> Inspired by Omarchy but not intended for developers
+
 ## Features
 
 - **Niri Window Manager**: Highly optimized scroll-based tiling layout with window rules and custom keyboard shortcuts.

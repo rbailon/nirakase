@@ -65,7 +65,7 @@ sudo pacman -Sy
 official_packages=(
     niri uwsm git xdg-utils
     xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk 
-    foot waybar mako swayosd awww fzf hypridle 
+    foot starship zoxide fzf waybar mako swayosd awww hypridle 
     playerctl brightnessctl power-profiles-daemon polkit-gnome network-manager-applet 
     nwg-look qt5ct qt6ct kvantum ttf-jetbrains-mono-nerd jq
     brave-origin-bin neovim imagemagick socat wl-clipboard hyprpicker
@@ -167,6 +167,10 @@ for dir in "$REPO_DIR/config"/*; do
     app_name=$(basename "$dir")
     safe_symlink "$dir" "$HOME/.config/$app_name"
 done
+
+# Deploy individual system/user dotfiles
+safe_symlink "$REPO_DIR/system/bashrc" "$HOME/.bashrc"
+
 
 # 3. Deploy Local Resources
 echo -e "\n${GREEN}[3/5] Applying local resources (Nirakase Local)...${NC}"
