@@ -160,13 +160,60 @@ safe_symlink() {
     echo -e "  ${BLUE}[+]${NC} Link created: $(basename "$target") ➔ $target"
 }
 
+# Helper function to recursively symlink files individually
+link_files_recursively() {
+    local source_dir="$1"
+    local target_dir="$2"
+
+    mkdir -p "$target_dir"
+
+    # Find all files and symlinks in the source directory
+    (
+        cd "$source_dir" || exit 1
+        find . -type f -o -type l | while read -r file; do
+            # Remove leading './'
+            file="${file#./}"
+            local src_file="$source_dir/$file"
+            local tgt_file="$target_dir/$file"
+            
+            # Ensure target parent directory exists
+            mkdir -p "$(dirname "$tgt_file")"
+            
+            # Use safe_symlink to link the file
+            safe_symlink "$src_file" "$tgt_file"
+        done
+    )
+}
+
 # 2. Deploy User Configs (Folder-level symlinking)
 echo -e "\n${GREEN}[2/5] Applying user configurations (Dotfiles)...${NC}"
 for dir in "$REPO_DIR/config"/*; do
     [ -d "$dir" ] || continue
     app_name=$(basename "$dir")
+    
+    # Skip directories that must be linked at the individual file-level
+    if [ "$app_name" = "gtk-3.0" ] || [ "$app_name" = "gtk-4.0" ] || [ "$app_name" = "systemd" ]; then
+        continue
+    fi
+    
     safe_symlink "$dir" "$HOME/.config/$app_name"
 done
+
+# 2.5. Deploy Special User Configs (File-level symlinking)
+echo -e "\n${GREEN}[2.5/5] Applying modular configurations (File-level)...${NC}"
+for special_dir in "gtk-3.0" "gtk-4.0" "systemd" "systemd/user"; do
+    target="$HOME/.config/$special_dir"
+    # If the target path exists and is a symlink, remove it to prevent issues
+    if [ -L "$target" ]; then
+        echo -e "  ${YELLOW}[!]${NC} Converting folder symlink to physical directory: $target"
+        rm -f "$target"
+    fi
+    mkdir -p "$target"
+done
+
+link_files_recursively "$REPO_DIR/config/gtk-3.0" "$HOME/.config/gtk-3.0"
+link_files_recursively "$REPO_DIR/config/gtk-4.0" "$HOME/.config/gtk-4.0"
+link_files_recursively "$REPO_DIR/config/systemd" "$HOME/.config/systemd"
 
 # Deploy individual system/user dotfiles
 safe_symlink "$REPO_DIR/system/bashrc" "$HOME/.bashrc"
@@ -229,6 +276,12 @@ done
 if command -v xdg-settings >/dev/null 2>&1; then
     xdg-settings set default-web-browser chromium.desktop 2>/dev/null || true
     echo -e "  ${GREEN}[✔]${NC} Configured Chromium as the default web browser"
+fi
+
+# Set GTK icon theme to Yaru-magenta-dark
+if command -v gsettings >/dev/null 2>&1; then
+    gsettings set org.gnome.desktop.interface icon-theme "Yaru-magenta-dark" 2>/dev/null || true
+    echo -e "  ${GREEN}[✔]${NC} Configured Yaru-magenta-dark as the default GTK icon theme"
 fi
 
 # 5. Install System Files (Wayland Session & SDDM Auto-login)
