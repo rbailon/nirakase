@@ -65,7 +65,7 @@ sudo pacman -Sy
 official_packages=(
     niri uwsm git xdg-utils
     xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk 
-    foot starship zoxide fzf waybar mako swayosd awww hypridle 
+    foot starship eza zoxide fzf waybar mako swayosd awww hypridle 
     playerctl brightnessctl power-profiles-daemon polkit-gnome network-manager-applet 
     nwg-look qt5ct qt6ct kvantum ttf-jetbrains-mono-nerd jq
     brave-origin-bin neovim imagemagick socat wl-clipboard hyprpicker
