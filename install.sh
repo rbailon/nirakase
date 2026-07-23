@@ -69,7 +69,7 @@ official_packages=(
     playerctl brightnessctl power-profiles-daemon polkit-gnome network-manager-applet 
     nwg-look qt5ct qt6ct kvantum ttf-jetbrains-mono-nerd jq
     brave-origin-bin neovim imagemagick socat wl-clipboard hyprpicker
-    wiremix btop gum impala bluetui upower curl pamixer pacman-contrib
+    wiremix btop gum impala bluetui upower curl pamixer pacman-contrib sddm
 )
 
 aur_packages=(
@@ -296,7 +296,22 @@ if [ ! -f "$HOME/.config/xdg-terminals.list" ]; then
     echo -e "  ${GREEN}[✔]${NC} Configured Foot as the default terminal"
 fi
 
-echo -e "\nConfiguring Autologin in SDDM for user $USER..."
+echo -e "\nConfiguring SDDM Display Manager and Autologin for user $USER..."
+known_dms=("gdm" "lightdm" "ly" "greetd" "lxdm" "slim" "nodm" "lemurs" "cosmic-greeter")
+for dm in "${known_dms[@]}"; do
+    if systemctl is-enabled "$dm.service" >/dev/null 2>&1; then
+        echo -e "  ${YELLOW}[!]${NC} Disabling active display manager: $dm"
+        sudo systemctl disable "$dm.service" 2>/dev/null || true
+    fi
+done
+
+if ! systemctl is-enabled sddm.service >/dev/null 2>&1; then
+    echo -e "  ${BLUE}[System]${NC} Enabling sddm.service..."
+    sudo systemctl enable sddm.service 2>/dev/null || true
+else
+    echo -e "  ${GREEN}[✔]${NC} sddm.service is already enabled"
+fi
+
 sudo mkdir -p /etc/sddm.conf.d/
 echo -e "[Autologin]\nUser=$USER\nSession=nirakase" | sudo tee /etc/sddm.conf.d/autologin.conf > /dev/null
 
