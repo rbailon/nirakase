@@ -12,6 +12,7 @@ Nirakase is a minimal, elegant, and high-performance Wayland desktop environment
 - **Color Picker**: Fast and lightweight color picker utilizing `hyprpicker` and `wl-clipboard` integrated directly into the capture submenu and keybinds (`Super+Alt+Print`).
 - **Wallpaper Selector**: Persistent visual wallpaper changer daemon written in Quickshell/QML with accordion animation styling.
 - **Unified Installer**: An idempotent `install.sh` script that manages backups, copies desktop portals, configures SDDM auto-login, and deploys all config symlinks.
+- **Boot Optimization**: Automatic detection and removal of Plymouth splash screen and initramfs hooks to minimize system boot time while preserving silent boot (`quiet`) across supported bootloaders (Limine, GRUB, systemd-boot, rEFInd).
 
 ## Directory Structure
 
@@ -41,4 +42,4 @@ chmod +x install.sh
 > [!NOTE]
 > The installer automatically detects if it is executed from a temporary location. If so, it relocates the entire repository to its official, persistent location at `~/.local/share/nirakase` and restarts execution from there. This ensures that the generated config symlinks under `~/.config/` remain persistent and do not break after a system reboot.
 
-The script will automatically install missing system dependencies, back up conflicting files, create configuration symlinks under `~/.config`, and register the graphical session.
+The script will automatically install missing system dependencies, back up conflicting files, create configuration symlinks under `~/.config`, register the graphical session, and optimize system boot by removing Plymouth and regenerating kernel initramfs images.
