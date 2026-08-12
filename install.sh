@@ -315,6 +315,85 @@ fi
 sudo mkdir -p /etc/sddm.conf.d/
 echo -e "[Autologin]\nUser=$USER\nSession=nirakase" | sudo tee /etc/sddm.conf.d/autologin.conf > /dev/null
 
+# 5.5. Boot Optimization: Automatic Plymouth Removal & Silent Boot
+echo -e "\n${GREEN}[5.5/5] Optimizing system boot (Plymouth removal & silent boot)...${NC}"
+
+plymouth_detected=false
+if pacman -Qq plymouth >/dev/null 2>&1 || pacman -Qq cachyos-plymouth-theme >/dev/null 2>&1 || grep -q "plymouth" /etc/mkinitcpio.conf 2>/dev/null; then
+    plymouth_detected=true
+fi
+
+if [ "$plymouth_detected" = true ]; then
+    echo -e "  ${BLUE}[System]${NC} Plymouth detected. Uninstalling packages..."
+    sudo pacman -Rns --noconfirm plymouth cachyos-plymouth-theme plymouth-krunner-plugin 2>/dev/null || true
+    
+    # 1. Clean /etc/mkinitcpio.conf
+    if grep -qE "\b(sd-)?plymouth\b" /etc/mkinitcpio.conf 2>/dev/null; then
+        echo -e "  ${BLUE}[System]${NC} Removing plymouth hook from /etc/mkinitcpio.conf..."
+        sudo sed -i -E 's/\b(sd-)?plymouth\b//g' /etc/mkinitcpio.conf
+        sudo sed -i -E 's/HOOKS=\(( +)/HOOKS=\(/g; s/  +/ /g' /etc/mkinitcpio.conf
+    fi
+
+    # 2. Multi-bootloader detection and configuration update
+    
+    # 2a. Limine
+    for limine_cfg in "/boot/limine.conf" "/boot/limine/limine.conf" "/etc/default/limine"; do
+        if [ -f "$limine_cfg" ]; then
+            echo -e "  ${BLUE}[System]${NC} Updating Limine boot configuration ($limine_cfg)..."
+            sudo sed -i -E 's/\bsplash\b//g; s/\bplymouth\.enable=[01]\b//g' "$limine_cfg"
+            if ! grep -q "quiet" "$limine_cfg"; then
+                sudo sed -i -E 's/(cmdline|KERNEL_CMDLINE.*=.*")/\1 quiet /' "$limine_cfg"
+            fi
+        fi
+    done
+
+    # 2b. GRUB
+    if [ -f "/etc/default/grub" ]; then
+        echo -e "  ${BLUE}[System]${NC} Updating GRUB configuration..."
+        sudo sed -i -E 's/\bsplash\b//g; s/\bplymouth\.enable=[01]\b//g' /etc/default/grub
+        if ! grep -q "quiet" /etc/default/grub; then
+            sudo sed -i -E 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="quiet /' /etc/default/grub
+        fi
+        if command -v grub-mkconfig >/dev/null 2>&1; then
+            echo -e "  ${BLUE}[System]${NC} Regenerating grub.cfg..."
+            sudo grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || true
+        fi
+    fi
+
+    # 2c. systemd-boot
+    for entry_dir in "/boot/loader/entries" "/efi/loader/entries"; do
+        if [ -d "$entry_dir" ]; then
+            echo -e "  ${BLUE}[System]${NC} Updating systemd-boot entries in $entry_dir..."
+            for entry_file in "$entry_dir"/*.conf; do
+                [ -f "$entry_file" ] || continue
+                sudo sed -i -E 's/\bsplash\b//g; s/\bplymouth\.enable=[01]\b//g' "$entry_file"
+                if ! grep -q "quiet" "$entry_file"; then
+                    sudo sed -i -E 's/^options /options quiet /' "$entry_file"
+                fi
+            done
+        fi
+    done
+    if [ -f "/etc/kernel/cmdline" ]; then
+        sudo sed -i -E 's/\bsplash\b//g; s/\bplymouth\.enable=[01]\b//g' /etc/kernel/cmdline
+    fi
+
+    # 2d. rEFInd
+    for refind_cfg in "/boot/refind_linux.conf" "/boot/EFI/refind/refind.conf"; do
+        if [ -f "$refind_cfg" ]; then
+            echo -e "  ${BLUE}[System]${NC} Updating rEFInd configuration..."
+            sudo sed -i -E 's/\bsplash\b//g; s/\bplymouth\.enable=[01]\b//g' "$refind_cfg"
+        fi
+    done
+
+    # 3. Regenerate Kernel Initramfs
+    echo -e "  ${BLUE}[System]${NC} Regenerating initramfs images with mkinitcpio..."
+    sudo mkinitcpio -P
+
+    echo -e "  ${GREEN}[✔]${NC} Boot optimization complete (Plymouth removed, silent boot preserved)."
+else
+    echo -e "  ${GREEN}[✔]${NC} Plymouth is not present on this system."
+fi
+
 # 6. Enable Systemd User Services
 echo -e "\nEnabling Systemd user daemons and services..."
 systemctl --user daemon-reload
