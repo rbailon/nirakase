@@ -63,7 +63,7 @@ sudo pacman -Sy
 
 # Separate official packages from AUR-only packages
 official_packages=(
-    niri uwsm git xdg-utils
+    niri uwsm git xdg-utils paru
     xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk 
     foot starship eza zoxide fzf waybar mako swayosd awww hypridle 
     playerctl brightnessctl power-profiles-daemon polkit-gnome network-manager-applet 
@@ -108,16 +108,19 @@ fi
 
 # Install AUR packages
 if [ ${#aur_to_install[@]} -gt 0 ]; then
-    # Bootstrapping paru if it is not installed
-    if ! command -v paru >/dev/null 2>&1; then
-        echo -e "  ${YELLOW}[!]${NC} paru (AUR helper) is required but not installed. Setting up paru-bin..."
-        sudo pacman -S --needed --noconfirm base-devel git
-        TEMP_DIR=$(mktemp -d)
-        echo -e "  ${BLUE}[System]${NC} Cloning paru-bin repository..."
-        git clone https://aur.archlinux.org/paru-bin.git "$TEMP_DIR/paru-bin"
-        echo -e "  ${BLUE}[System]${NC} Building and installing paru-bin..."
-        (cd "$TEMP_DIR/paru-bin" && makepkg -si --noconfirm)
-        rm -rf "$TEMP_DIR"
+    # Verify paru availability and functionality (preventing libalpm version mismatches)
+    if ! command -v paru >/dev/null 2>&1 || ! paru --version >/dev/null 2>&1; then
+        echo -e "  ${YELLOW}[!]${NC} paru is missing or has a library mismatch. Installing/refreshing paru via pacman..."
+        if ! sudo pacman -S --noconfirm paru 2>/dev/null; then
+            echo -e "  ${YELLOW}[!]${NC} Failed to install paru from repository. Building paru-bin from AUR as fallback..."
+            sudo pacman -S --needed --noconfirm base-devel git
+            TEMP_DIR=$(mktemp -d)
+            echo -e "  ${BLUE}[System]${NC} Cloning paru-bin repository..."
+            git clone https://aur.archlinux.org/paru-bin.git "$TEMP_DIR/paru-bin"
+            echo -e "  ${BLUE}[System]${NC} Building and installing paru-bin..."
+            (cd "$TEMP_DIR/paru-bin" && makepkg -si --noconfirm)
+            rm -rf "$TEMP_DIR"
+        fi
     fi
 
     echo -e "  ${BLUE}[System]${NC} Installing missing AUR dependencies: ${aur_to_install[*]}"
