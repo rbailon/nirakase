@@ -52,7 +52,7 @@ window-rule {
 // 3. CUSTOM SIZES
 // ---------------------------------------------------------
 window-rule {
-    match app-id=r#"^(firefox|brave-browser|google-chrome)"#
+    match app-id=r#"^(firefox|brave-browser|google-chrome|zen)"#
     
     default-column-width { proportion 0.7; }  // Column at 70% of screen width
 }
