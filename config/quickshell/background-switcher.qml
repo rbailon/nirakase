@@ -2,298 +2,220 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
-import QtQuick.Effects
-import QtQuick.Shapes
+import "."
 
 ShellRoot {
     id: root
 
-    property string socketPath: (Quickshell.env("XDG_RUNTIME_DIR") || ("/run/user/" + Quickshell.env("UID"))) + "/nirakase-image-selector.sock"
-    
-    property bool opened: false
-    property string selectionFile: ""
-    property string doneFile: ""
-    property string selectedImage: ""
+    property string indexFile: Quickshell.env("HOME") + "/.cache/nirakase/image-selector/index.json"
+    property string currentWallpaper: Quickshell.env("NIRAKASE_CURRENT_WALLPAPER") || ""
     
     property int selectedIndex: 0
-    property int expandedWidth: 640
-    property int collapsedWidth: 100
-    property int itemHeight: 400
-    property int spacing: -15
-    property int skewOffset: 25
+    property int expandedWidth: 540
+    property int collapsedWidth: 90
+    property int itemHeight: 340
+    property int itemSpacing: 10
+    property bool ready: false
 
     ListModel {
         id: imageModel
     }
 
-    // Socket server for IPC
-    SocketServer {
-        active: true
-        path: root.socketPath
-
-        handler: Socket {
-            id: clientSocket
-            parser: SplitParser {
-                onRead: function(message) {
-                    root.handleRequest(message);
-                    clientSocket.connected = false;
-                }
-            }
-        }
-    }
-
-    // Process to write selection and touch done file
     Process {
         id: applyProcess
-        command: []
-        running: false
-        onRunningChanged: {
-            if (!running) {
-                root.opened = false;
-            }
-        }
     }
 
-    function handleRequest(message) {
-        try {
-            var data = JSON.parse(message);
-            imageModel.clear();
-            for (var i = 0; i < data.images.length; i++) {
-                imageModel.append(data.images[i]);
-            }
-            root.selectionFile = data.selectionFile;
-            root.doneFile = data.doneFile;
-            root.selectedImage = data.selected;
-
-            var foundIndex = 0;
-            for (var j = 0; j < imageModel.count; j++) {
-                if (imageModel.get(j).path === root.selectedImage) {
-                    foundIndex = j;
-                    break;
+    // Load cached index and match active wallpaper
+    FileView {
+        path: root.indexFile
+        onLoaded: {
+            try {
+                var list = JSON.parse(text());
+                imageModel.clear();
+                var targetIdx = 0;
+                for (var i = 0; i < list.length; i++) {
+                    imageModel.append(list[i]);
+                    if (root.currentWallpaper !== "" && list[i].path === root.currentWallpaper) {
+                        targetIdx = i;
+                    }
                 }
+                root.selectedIndex = targetIdx;
+                // Enable layout animations once initial position is resolved
+                Qt.callLater(() => {
+                    root.ready = true;
+                });
+            } catch (e) {
+                console.error("Error cargando índice de fondos:", e);
+                root.ready = true;
             }
-            root.selectedIndex = foundIndex;
-            root.opened = true;
-            mainContainer.forceActiveFocus();
-        } catch (e) {
-            console.log("JSON Parse Error: " + e);
         }
     }
 
-    function applySelected() {
+    function applySelection() {
         if (selectedIndex >= 0 && selectedIndex < imageModel.count) {
             var chosen = imageModel.get(selectedIndex).path;
-            applyProcess.command = ["bash", "-c", "printf '%s' '" + chosen + "' > '" + root.selectionFile + "' && touch '" + root.doneFile + "'"];
-            applyProcess.running = true;
+            applyProcess.exec(["nirakase-wallpaper", chosen]);
         }
+        Qt.quit();
     }
 
-    function cancel() {
-        applyProcess.command = ["bash", "-c", "touch '" + root.doneFile + "'"];
-        applyProcess.running = true;
+    function closeSelector() {
+        Qt.quit();
     }
 
     PanelWindow {
         id: panel
-        visible: root.opened
+        visible: true
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
-        
+
         WlrLayershell.namespace: "nirakase-image-selector"
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         exclusionMode: ExclusionMode.Ignore
 
-        // Dark dim background
+        // Dimmed backdrop
         Rectangle {
             anchors.fill: parent
-            color: "#dd080808" // Nirakase dark dim overlay
+            color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.82)
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.closeSelector()
+            }
         }
 
-        // Catch mouse clicks outside to cancel
-        MouseArea {
-            anchors.fill: parent
-            onClicked: root.cancel()
-        }
-
-        // Central container for keyboard events and the slide deck
+        // Main interactive container with smooth entrance fade
         Item {
             id: mainContainer
-            width: parent.width
-            height: root.itemHeight + 100
-            anchors.centerIn: parent
+            anchors.fill: parent
             focus: true
+            opacity: root.ready ? 1.0 : 0.0
+
+            Behavior on opacity {
+                NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+            }
+
+            Component.onCompleted: mainContainer.forceActiveFocus()
 
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Escape) {
-                    root.cancel();
+                    root.closeSelector();
                     event.accepted = true;
                 } else if (event.key === Qt.Key_Left) {
-                    root.selectedIndex = Math.max(0, root.selectedIndex - 1);
+                    root.selectedIndex = (root.selectedIndex - 1 + imageModel.count) % imageModel.count;
                     event.accepted = true;
                 } else if (event.key === Qt.Key_Right) {
-                    root.selectedIndex = Math.min(imageModel.count - 1, root.selectedIndex + 1);
+                    root.selectedIndex = (root.selectedIndex + 1) % imageModel.count;
                     event.accepted = true;
-                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                    root.applySelected();
+                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    root.applySelection();
                     event.accepted = true;
                 }
             }
 
-            // Slide deck item list
             Item {
-                id: deckContainer
-                width: root.expandedWidth + (imageModel.count - 1) * (root.collapsedWidth + root.spacing)
-                height: root.itemHeight
+                id: carouselContainer
                 anchors.centerIn: parent
+                height: root.itemHeight
+                width: parent.width
 
                 Repeater {
                     model: imageModel
 
-                    delegate: Item {
-                        id: sliceItem
-                        
-                        width: index === root.selectedIndex ? root.expandedWidth : root.collapsedWidth
-                        height: parent.height
-                        
+                    delegate: Rectangle {
+                        id: card
+                        required property var model
+                        required property int index
+
+                        readonly property bool isSelected: index === root.selectedIndex
+                        readonly property int distance: index - root.selectedIndex
+
+                        height: root.itemHeight
+                        width: isSelected ? root.expandedWidth : root.collapsedWidth
+                        radius: 14
+                        clip: true
+
+                        // Symmetrical carousel positioning relative to center
                         x: {
-                            var cWidth = root.collapsedWidth + root.spacing;
-                            var selX = (parent.width - root.expandedWidth) / 2;
+                            var step = root.collapsedWidth + root.itemSpacing;
+                            var selX = (carouselContainer.width - root.expandedWidth) / 2;
+
                             if (index === root.selectedIndex) {
                                 return selX;
                             } else if (index < root.selectedIndex) {
-                                return selX - (root.selectedIndex - index) * cWidth;
+                                var distLeft = root.selectedIndex - index;
+                                return selX - (distLeft * step);
                             } else {
-                                return selX + root.expandedWidth + root.spacing + (index - root.selectedIndex - 1) * cWidth;
+                                var distRight = index - root.selectedIndex;
+                                return selX + root.expandedWidth + root.itemSpacing + ((distRight - 1) * step);
                             }
                         }
 
-                        z: index === root.selectedIndex ? 100 : (50 - Math.abs(index - root.selectedIndex))
-
-                        opacity: {
-                            var dist = Math.abs(index - root.selectedIndex);
-                            if (dist > 5) return 0.0;
-                            return dist === 0 ? 1.0 : (1.0 - dist * 0.15);
-                        }
-
+                        z: isSelected ? 100 : (50 - Math.abs(distance))
+                        opacity: Math.abs(distance) > 5 ? 0.0 : (isSelected ? 1.0 : (0.9 - Math.abs(distance) * 0.15))
                         visible: opacity > 0.01
 
+                        color: Theme.surface
+                        border.color: isSelected ? Theme.accent : Theme.border
+                        border.width: isSelected ? 2 : 1
+
+                        // Animate transitions only after initial layout is set
                         Behavior on x {
-                            NumberAnimation { duration: 280; easing.type: Easing.OutCubic }
+                            enabled: root.ready
+                            NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
                         }
                         Behavior on width {
-                            NumberAnimation { duration: 280; easing.type: Easing.OutCubic }
+                            enabled: root.ready
+                            NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
                         }
-                        Behavior on opacity {
-                            NumberAnimation { duration: 280; easing.type: Easing.OutCubic }
-                        }
+                        Behavior on opacity { NumberAnimation { duration: 200 } }
+                        Behavior on border.color { ColorAnimation { duration: 200 } }
 
-                        // Parallelogram mask shape
-                        Item {
-                            id: maskShape
+                        Image {
                             anchors.fill: parent
-                            visible: false
-                            layer.enabled: true
-
-                            Shape {
-                                anchors.fill: parent
-                                antialiasing: true
-                                preferredRendererType: Shape.CurveRenderer
-                                ShapePath {
-                                    fillColor: "white"
-                                    strokeColor: "transparent"
-                                    startX: root.skewOffset
-                                    startY: 0
-                                    PathLine { x: parent.width; y: 0 }
-                                    PathLine { x: parent.width - root.skewOffset; y: parent.height }
-                                    PathLine { x: 0; y: parent.height }
-                                    PathLine { x: root.skewOffset; y: 0 }
-                                }
-                            }
+                            source: "file://" + model.thumb
+                            fillMode: Image.PreserveAspectCrop
+                            smooth: true
                         }
 
-                        // Content (Image clipped by mask)
-                        Item {
+                        // Dim unselected cards
+                        Rectangle {
                             anchors.fill: parent
-                            layer.enabled: true
-                            layer.smooth: true
-                            layer.effect: MultiEffect {
-                                maskEnabled: true
-                                maskSource: maskShape
-                                maskThresholdMin: 0.5
-                                maskSpreadAtMin: 0.5
-                            }
-
-                            Image {
-                                anchors.fill: parent
-                                source: "file://" + model.thumb
-                                fillMode: Image.PreserveAspectCrop
-                                smooth: true
-                            }
-
-                            // Dark overlay on collapsed slices
-                            Rectangle {
-                                anchors.fill: parent
-                                color: "#000000"
-                                opacity: index === root.selectedIndex ? 0.0 : 0.45
-                                Behavior on opacity {
-                                    NumberAnimation { duration: 200 }
-                                }
-                            }
+                            color: "#000000"
+                            opacity: isSelected ? 0.0 : 0.45
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
                         }
 
-                        // Parallelogram white/grey border outline
-                        Shape {
-                            anchors.fill: parent
-                            antialiasing: true
-                            preferredRendererType: Shape.CurveRenderer
-                            ShapePath {
-                                fillColor: "transparent"
-                                strokeColor: index === root.selectedIndex ? "#ffffff" : "#44ffffff"
-                                strokeWidth: index === root.selectedIndex ? 3 : 1
-                                Behavior on strokeColor { ColorAnimation { duration: 200 } }
-                                Behavior on strokeWidth { NumberAnimation { duration: 200 } }
-
-                                startX: root.skewOffset
-                                startY: 0
-                                PathLine { x: parent.width; y: 0 }
-                                PathLine { x: parent.width - root.skewOffset; y: parent.height }
-                                PathLine { x: 0; y: parent.height }
-                                PathLine { x: root.skewOffset; y: 0 }
-                            }
-                        }
-
-                        // Label overlay for selected item
+                        // Active wallpaper label
                         Rectangle {
                             anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 15
+                            anchors.bottomMargin: 14
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: parent.width - 80
-                            height: 38
-                            color: "#ee0c0c0c"
-                            radius: 6
-                            visible: index === root.selectedIndex
-                            opacity: index === root.selectedIndex ? 1.0 : 0.0
-                            Behavior on opacity { NumberAnimation { duration: 200 } }
+                            width: Math.min(parent.width - 32, labelText.implicitWidth + 24)
+                            height: 32
+                            radius: 8
+                            color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.85)
+                            border.color: Theme.border
+                            border.width: 1
+                            visible: isSelected
 
                             Text {
+                                id: labelText
                                 anchors.centerIn: parent
                                 text: model.name
-                                color: "#ffffff"
-                                font.family: "Outfit"
-                                font.pixelSize: 14
-                                font.bold: true
+                                color: Theme.textPrimary
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
                             }
                         }
 
-                        // Clicking on collapsed items expands them, clicking on expanded applies them
                         MouseArea {
                             anchors.fill: parent
-                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                if (index === root.selectedIndex) {
-                                    root.applySelected();
+                                if (isSelected) {
+                                    root.applySelection();
                                 } else {
                                     root.selectedIndex = index;
                                 }
@@ -303,14 +225,12 @@ ShellRoot {
                 }
             }
 
-            // Keyboard navigation hint at the bottom
             Text {
-                anchors.top: deckContainer.bottom
-                anchors.topMargin: 25
+                anchors.top: carouselContainer.bottom
+                anchors.topMargin: 28
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "← / → : Navigate   •   ENTER : Select   •   ESC : Cancel"
-                color: "#88ffffff"
-                font.family: "Outfit"
+                text: "← / → : Navegar   •   ENTER : Aplicar   •   ESC : Cancelar"
+                color: Theme.textSecondary
                 font.pixelSize: 12
             }
         }
