@@ -1,0 +1,41 @@
+module NiraShell
+
+# Root files
+singleton Config 1.0 Config.qml
+
+# components subfolder
+CollapsibleItem 1.0 components/CollapsibleItem.qml
+IconButtonBar 1.0 components/IconButtonBar.qml
+NotificationsCard 1.0 components/NotificationsCard.qml
+ShadowEffect 1.0 components/ShadowEffect.qml
+StatusIndicatorButton 1.0 components/StatusIndicatorButton.qml
+
+# island subfolder
+singleton Theme 1.0 Theme.qml
+AudioWidget 1.0 island/AudioWidget.qml
+BatteryWidget 1.0 island/BatteryWidget.qml
+BluetoothWidget 1.0 island/BluetoothWidget.qml
+DateTimeWidget 1.0 island/DateTimeWidget.qml
+IdleWidget 1.0 island/IdleWidget.qml
+NotificationCenterWidget 1.0 island/NotificationCenterWidget.qml
+NotificationPopup 1.0 island/NotificationPopup.qml
+NotificationsWidget 1.0 island/NotificationsWidget.qml
+OsdWidget 1.0 island/OsdWidget.qml
+PowerMenuWidget 1.0 island/PowerMenuWidget.qml
+SystemWidget 1.0 island/SystemWidget.qml
+ThemesWidget 1.0 island/ThemesWidget.qml
+UpdatesWidget 1.0 island/UpdatesWidget.qml
+WifiWidget 1.0 island/WifiWidget.qml
+WorkspacesWidget 1.0 island/WorkspacesWidget.qml
+
+# services subfolder
+singleton NotificationService 1.0 services/NotificationService.qml
+singleton OsdService 1.0 services/OsdService.qml
+
+# themes subfolder
+Dark 1.0 themes/Dark.qml
+Light 1.0 themes/Light.qml
+Catppuccin 1.0 themes/Catppuccin.qml
+EInkDark 1.0 themes/EInkDark.qml
+Industrial 1.0 themes/Industrial.qml
+Horizon 1.0 themes/Horizon.qml
