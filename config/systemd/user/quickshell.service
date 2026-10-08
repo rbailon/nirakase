@@ -1,0 +1,16 @@
+[Unit]
+# Quickshell Desktop Shell Service for Nirakase
+Description=Quickshell - Desktop Shell for Nirakase
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+# Executable launcher for Quickshell
+ExecStart=/usr/bin/quickshell
+# Automatic restart on non-zero exit code
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
