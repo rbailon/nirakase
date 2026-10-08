@@ -16,7 +16,8 @@ binds {
     // 2. Application Launcher
     Mod+Space hotkey-overlay-title="Walker" { spawn "uwsm" "app" "--" "walker";}
     Mod+Alt+Space hotkey-overlay-title="Nirakase menu" { spawn "uwsm" "app" "--" "nirakase-launch-or-focus-tui" "nirakase-menu-fzf";}
-    Mod+Alt+W hotkey-overlay-title="Wallpaper selector" { spawn "bash" "-c" "current_bg=$(strings ~/.cache/awww/*/* 2>/dev/null | grep -m1 -o '/home/[^ ]*' || echo ~/.local/share/nirakase/wallpapers/wallpaper.png) && selection=$(~/.local/share/nirakase/bin/nirakase-menu-images --selected \"$current_bg\" 2>/dev/null) && [[ -n $selection ]] && ~/.local/share/nirakase/bin/nirakase-wallpaper $selection"; }
+    // Mod+Alt+W hotkey-overlay-title="Wallpaper selector" { spawn "bash" "-c" "current_bg=$(strings ~/.cache/awww/*/* 2>/dev/null | grep -m1 -o '/home/[^ ]*' || echo ~/.local/share/nirakase/wallpapers/wallpaper.png) && selection=$(~/.local/share/nirakase/bin/nirakase-menu-images --selected \"$current_bg\" 2>/dev/null) && [[ -n $selection ]] && ~/.local/share/nirakase/bin/nirakase-wallpaper $selection"; }
+    Mod+Alt+W hotkey-overlay-title="Wallpaper selector" { spawn "nirakase-menu-images"; }
     Mod+Y hotkey-overlay-title="Yazi" { spawn "uwsm" "app" "--" "xdg-terminal-exec" "yazi";}
 
     // pending deletion
@@ -74,8 +75,9 @@ binds {
 
     // 1. Screen States
     Mod+F { fullscreen-window; } // True fullscreen (hides Waybar)
-    Mod+M { maximize-window-to-edges; } // Expand column to full screen width (keeps Waybar)
-    Mod+Shift+M { maximize-column; }   // Expand column to full visible width (keeps Waybar)
+    Mod+M { maximize-column; }   // Expand column to full visible width (keeps Waybar)
+    // Mod+M { maximize-window-to-edges; } // Expand column to full screen width (keeps Waybar)
+    // Mod+Shift+M { maximize-column; }   // Expand column to full visible width (keeps Waybar)
 
     // 2. Fine-tune column width (Horizontal Axis)
     // We use Minus (-) and Equal (=, which is usually the key for + without Shift)
@@ -103,25 +105,27 @@ binds {
     // SECTION D: HARDWARE AND MULTIMEDIA (Special Keys)
     // ---------------------------------------------------------
 
-    // 1. Volume Control (Using the SwayOSD client)
-    XF86AudioRaiseVolume        allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
-    // XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+ -l 1.0"; }
-    XF86AudioLowerVolume        allow-when-locked=true { spawn "swayosd-client" "--output-volume" "lower"; }
-    // XF86AudioLowerVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1-"; }
-    XF86AudioMute               allow-when-locked=true { spawn "swayosd-client" "--output-volume" "mute-toggle"; }
-    // XF86AudioMute        allow-when-locked=true { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"; }
+    // 1. Volume Control (Using Quickshell Dynamic Island OSD)
+    XF86AudioRaiseVolume        allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "volumeRaise"; }
+    XF86AudioLowerVolume        allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "volumeLower"; }
+    XF86AudioMute               allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "volumeMute"; }
 
-    // Microphone control (optional, if your keyboard has the key)
-    XF86AudioMicMute            allow-when-locked=true { spawn "swayosd-client" "--input-volume" "mute-toggle"; }
-    // XF86AudioMicMute     allow-when-locked=true { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"; }
+    // Microphone control
+    XF86AudioMicMute            allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "micMute"; }
 
-    // 2. Brightness Control (Using the SwayOSD client)
-    XF86MonBrightnessUp         allow-when-locked=true { spawn "swayosd-client" "--brightness" "raise"; }
-    // XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+10%"; }
-    XF86MonBrightnessDown       allow-when-locked=true { spawn "swayosd-client" "--brightness" "lower"; }
-    // XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "10%-"; }
+    // 2. Brightness Control (Using Quickshell Dynamic Island OSD)
+    XF86MonBrightnessUp         allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "brightnessUp"; }
+    XF86MonBrightnessDown       allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "brightnessDown"; }
 
-    // 3. Multimedia Control (Play, Pause, Next)
+    // 3. Keyboard Backlight (brightnessctl --device='*kbd_backlight*')
+    XF86KbdBrightnessUp         allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "kbdBrightnessUp"; }
+    XF86KbdBrightnessDown       allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "kbdBrightnessDown"; }
+
+    // 4. Performance / Power Profiles (powerprofilesctl)
+    XF86Battery                 allow-when-locked=true { spawn "quickshell" "ipc" "call" "island" "powerProfileCycle"; }
+    Mod+Shift+E                 allow-when-locked=true hotkey-overlay-title="Cycle Power Profile" { spawn "quickshell" "ipc" "call" "island" "powerProfileCycle"; }
+
+    // 5. Multimedia Control (Play, Pause, Next)
     // Requires 'playerctl' installed on the system
     XF86AudioPlay               allow-when-locked=true { spawn "playerctl" "play-pause"; }
     XF86AudioStop               allow-when-locked=true { spawn "playerctl" "stop"; }
@@ -158,7 +162,16 @@ binds {
 
 
 
+    // ---------------------------------------------------------
+    // SECTION F: QUICKSHELL SHORTCUTS
+    // ---------------------------------------------------------
 
+    Mod+Alt+L     { spawn "quickshell" "ipc" "call" "island" "toggleBar"; }
+    // Mod+Alt+B     { spawn "quickshell" "ipc" "call" "island" "calendar"; }
+    Mod+Alt+P     { spawn "quickshell" "ipc" "call" "island" "power"; }
+    Mod+Alt+T     { spawn "quickshell" "ipc" "call" "island" "themes"; }
+    Mod+Alt+N     { spawn "quickshell" "ipc" "call" "island" "notifications"; }
+ 
 
 
 
