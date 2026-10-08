@@ -33,9 +33,8 @@ export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
 #export XCURSOR_THEME=Yaru
 #export XCURSOR_SIZE=24
 
-export OMARCHY_PATH=$HOME/.local/share/omarchy # Temporary line for research
 export NIRAKASE_PATH=$HOME/.local/share/nirakase
-export PATH=$OMARCHY_PATH/bin:$NIRAKASE_PATH/bin:$PATH:$HOME/.local/bin
+export PATH=$NIRAKASE_PATH/bin:$PATH:$HOME/.local/bin
 
 export TERMINAL=xdg-terminal-exec
 export EDITOR=nvim
