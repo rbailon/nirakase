@@ -17,6 +17,7 @@ BatteryWidget 1.0 island/BatteryWidget.qml
 BluetoothWidget 1.0 island/BluetoothWidget.qml
 DateTimeWidget 1.0 island/DateTimeWidget.qml
 IdleWidget 1.0 island/IdleWidget.qml
+LauncherWidget 1.0 island/LauncherWidget.qml
 NotificationCenterWidget 1.0 island/NotificationCenterWidget.qml
 NotificationPopup 1.0 island/NotificationPopup.qml
 NotificationsWidget 1.0 island/NotificationsWidget.qml

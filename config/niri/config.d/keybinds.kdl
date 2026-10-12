@@ -167,10 +167,10 @@ binds {
     // ---------------------------------------------------------
 
     Mod+Alt+L     { spawn "quickshell" "ipc" "call" "island" "toggleBar"; }
-    // Mod+Alt+B     { spawn "quickshell" "ipc" "call" "island" "calendar"; }
-    Mod+Alt+P     { spawn "quickshell" "ipc" "call" "island" "power"; }
     Mod+Alt+T     { spawn "quickshell" "ipc" "call" "island" "themes"; }
     Mod+Alt+N     { spawn "quickshell" "ipc" "call" "island" "notifications"; }
+    Mod+Alt+P     { spawn "quickshell" "ipc" "call" "island" "power"; }
+    Mod+Shift+Space     { spawn "quickshell" "ipc" "call" "island" "launcher"; }
  
 
 

@@ -42,6 +42,10 @@ ShellRoot {
             power();
         }
 
+        function launcher() {
+            islandPill.currentMode === 5 ? panelBase.closeLauncher() : islandPill.currentMode = 5;
+        }
+
         // OSD Controls
         function volumeRaise()          { OsdService.volumeRaise(); }
         function volumeLower()          { OsdService.volumeLower(); }
@@ -85,13 +89,15 @@ ShellRoot {
         id: panelBase
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.layer: WlrLayershell.Top
-        WlrLayershell.keyboardFocus: (islandPill.currentMode === 2 || islandPill.currentMode === 3 || islandPill.currentMode === 4) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        // WlrLayershell.keyboardFocus: (islandPill.currentMode === 2 || islandPill.currentMode === 3 || islandPill.currentMode === 4) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: (islandPill.currentMode === 2 || islandPill.currentMode === 3 || islandPill.currentMode === 4 || islandPill.currentMode === 5) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
         anchors { 
             top: true 
             left: true
             right: true
-            bottom: islandPill.currentMode === 2 || islandPill.currentMode === 3 || islandPill.currentMode === 4
+            // bottom: islandPill.currentMode === 2 || islandPill.currentMode === 3 || islandPill.currentMode === 4
+            bottom: islandPill.currentMode === 2 || islandPill.currentMode === 3 || islandPill.currentMode === 4 || islandPill.currentMode === 5
         }
 
         implicitHeight: islandPill.height + 10
@@ -116,6 +122,10 @@ ShellRoot {
             islandPill.currentMode = 0;
         }
 
+        function closeLauncher() {
+            islandPill.currentMode = 0;
+        }
+
         // Dismiss modal on background click
         MouseArea {
             anchors.fill: parent
@@ -124,6 +134,7 @@ ShellRoot {
                 if (islandPill.currentMode === 2) themesWidget.cancel();
                 else if (islandPill.currentMode === 3) panelBase.closeNotifications();
                 else if (islandPill.currentMode === 4) panelBase.closePowerMenu();
+                else if (islandPill.currentMode === 5) panelBase.closeLauncher();
             }
         }
 
@@ -133,7 +144,7 @@ ShellRoot {
             anchors.topMargin: 4
             anchors.horizontalCenter: parent.horizontalCenter
 
-            // Display modes: 0 = Bar, 1 = OSD, 2 = Themes, 3 = Notifications, 4 = PowerMenu
+            // Display modes: 0 = Bar, 1 = OSD, 2 = Themes, 3 = Notifications, 4 = PowerMenu, 5 = Launcher
             property int currentMode: 0
             property int previousMode: 0
 
@@ -157,6 +168,7 @@ ShellRoot {
                     case 2: w = themesWidget.implicitWidth; break;
                     case 3: w = notificationCenterWidget.implicitWidth; break;
                     case 4: w = powerMenuWidget.implicitWidth; break;
+                    case 5: w = launcherWidget.implicitWidth; break;
                     default: w = rowBar.implicitWidth; break;
                 }
                 return w > 0 ? w : 100;
@@ -170,6 +182,7 @@ ShellRoot {
                     case 2: h = themesWidget.implicitHeight; break;
                     case 3: h = notificationCenterWidget.implicitHeight; break;
                     case 4: h = powerMenuWidget.implicitHeight; break;
+                    case 5: h = launcherWidget.implicitHeight; break;
                     default: h = rowBar.implicitHeight; break;
                 }
                 return h > 0 ? h : 30;
@@ -344,6 +357,22 @@ ShellRoot {
 
                     onActionExecuted: panelBase.closePowerMenu()
                     onCloseRequested: panelBase.closePowerMenu()
+                }
+
+                // Mode 5: Launcher
+                LauncherWidget {
+                    id: launcherWidget
+                    anchors.centerIn: parent
+                    visible: opacity > 0.01
+                    opacity: islandPill.currentMode === 5 ? 1.0 : 0.0
+                    scale: islandPill.currentMode === 5 ? 1.0 : 0.3
+                    transformOrigin: Item.Center
+
+                    Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.InOutCubic } }
+                    Behavior on scale   { NumberAnimation { duration: 240; easing.type: Easing.InOutCubic } }
+
+                    onAppLaunched: panelBase.closeLauncher()
+                    onCloseRequested: panelBase.closeLauncher()
                 }
             }
         }
