@@ -2,14 +2,13 @@ nirakase (parent folder)
 ├── config/                 <-- Folders that go in ~/.config/ (linked at folder level)
 │   ├── foot/               <-- Foot terminal emulator
 │   ├── hypridle/           <-- Idle daemon
-│   ├── mako/               <-- Notifications
 │   ├── niri/               <-- Niri Wayland compositor (includes config.d/)
+│   ├── quickshell/         <-- Desktop shell (status bar, notifications, power menu, theming, OSD)
 │   ├── swaylock/           <-- Screen locker
-│   ├── swayosd/            <-- Brightness and volume HUD
 │   ├── systemd/            <-- Systemd user services (replaces services-systemd)
-│   │   └── user/           <-- Contains mako.service, awww.service, etc.
+│   │   └── user/           <-- Contains awww.service, quickshell.service, etc.
 │   ├── walker/             <-- Walker runner and menus
-│   └── waybar/             <-- Status bar
+│   └── waybar/             <-- Status bar (replaced by quickshell)
 ├── local/                  <-- Structure for ~/.local/share/nirakase/
 │   ├── applications/       <-- Preconfigured .desktop shortcuts (copied to ~/.local/share/applications/ and dynamically ported)
 │   ├── bin/                <-- All Nirakase scripts (linked to ~/.local/share/nirakase/bin/)
