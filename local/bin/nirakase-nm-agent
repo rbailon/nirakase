@@ -1,0 +1,436 @@
+#!/usr/bin/env python3
+# ==============================================================================
+# Nirakase: nirakase-nm-agent
+# Description: Lightweight headless NetworkManager Secret Agent (D-Bus) supporting
+#              all NetworkManager VPN plugins (OpenConnect, OpenVPN, L2TP, etc.)
+#              and libsecret (GNOME Keyring) without system tray overhead.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
+
+import glob
+import os
+import signal
+import subprocess
+import sys
+import threading
+
+import gi
+gi.require_version("NM", "1.0")
+gi.require_version("Secret", "1")
+from gi.repository import GLib, Gio, NM, Secret
+
+AGENT_IDENTIFIER = "org.nirakase.nm-agent"
+NM_BUS_NAME = "org.freedesktop.NetworkManager"
+AGENT_MANAGER_PATH = "/org/freedesktop/NetworkManager/AgentManager"
+AGENT_MANAGER_IFACE = "org.freedesktop.NetworkManager.AgentManager"
+SECRET_AGENT_PATH = "/org/freedesktop/NetworkManager/SecretAgent"
+SECRET_AGENT_IFACE = "org.freedesktop.NetworkManager.SecretAgent"
+
+# NM_SECRET_AGENT_CAPABILITY_VPN_HINTS = 0x1
+CAPABILITY_VPN_HINTS = 1
+
+# NM_SECRET_AGENT_GET_SECRETS_FLAG_*
+FLAG_NONE = 0x0
+FLAG_ALLOW_INTERACTION = 0x1
+FLAG_REQUEST_NEW = 0x2
+FLAG_USER_REQUESTED = 0x4
+
+SECRET_AGENT_XML = """
+<node>
+  <interface name="org.freedesktop.NetworkManager.SecretAgent">
+    <method name="GetSecrets">
+      <arg type="a{sa{sv}}" name="connection" direction="in"/>
+      <arg type="o" name="connection_path" direction="in"/>
+      <arg type="s" name="setting_name" direction="in"/>
+      <arg type="as" name="hints" direction="in"/>
+      <arg type="u" name="flags" direction="in"/>
+      <arg type="a{sa{sv}}" name="secrets" direction="out"/>
+    </method>
+    <method name="CancelGetSecrets">
+      <arg type="o" name="connection_path" direction="in"/>
+      <arg type="s" name="setting_name" direction="in"/>
+    </method>
+    <method name="SaveSecrets">
+      <arg type="a{sa{sv}}" name="connection" direction="in"/>
+      <arg type="o" name="connection_path" direction="in"/>
+    </method>
+    <method name="DeleteSecrets">
+      <arg type="a{sa{sv}}" name="connection" direction="in"/>
+      <arg type="o" name="connection_path" direction="in"/>
+    </method>
+  </interface>
+</node>
+"""
+
+NM_SECRET_SCHEMA = Secret.Schema.new(
+    "org.freedesktop.NetworkManager.Connection",
+    Secret.SchemaFlags.DONT_MATCH_NAME,
+    {
+        "connection-uuid": Secret.SchemaAttributeType.STRING,
+        "setting-name": Secret.SchemaAttributeType.STRING,
+        "setting-key": Secret.SchemaAttributeType.STRING,
+    },
+)
+
+
+class NirakaseSecretAgent:
+    def __init__(self, loop: GLib.MainLoop):
+        self.loop = loop
+        self.bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        self.node_info = Gio.DBusNodeInfo.new_for_xml(SECRET_AGENT_XML)
+        self.active_dialogs = {}
+        self.lock = threading.Lock()
+
+        self.reg_id = self.bus.register_object(
+            SECRET_AGENT_PATH,
+            self.node_info.interfaces[0],
+            self._on_method_call,
+            None,
+            None,
+        )
+
+        # Re-register automatically whenever NetworkManager restarts
+        self.name_watch_id = self.bus.signal_subscribe(
+            "org.freedesktop.DBus",
+            "org.freedesktop.DBus",
+            "NameOwnerChanged",
+            "/org/freedesktop/DBus",
+            NM_BUS_NAME,
+            Gio.DBusSignalFlags.NONE,
+            self._on_nm_owner_changed,
+            None,
+        )
+
+        self.register_with_nm()
+
+    def register_with_nm(self):
+        try:
+            self.bus.call_sync(
+                NM_BUS_NAME,
+                AGENT_MANAGER_PATH,
+                AGENT_MANAGER_IFACE,
+                "RegisterWithCapabilities",
+                GLib.Variant("(su)", (AGENT_IDENTIFIER, CAPABILITY_VPN_HINTS)),
+                None,
+                Gio.DBusCallFlags.NONE,
+                -1,
+                None,
+            )
+        except Exception as exc:
+            print(f"[nirakase-nm-agent] Warning: Could not register yet: {exc}", file=sys.stderr)
+
+    def _on_nm_owner_changed(self, _conn, _sender, _path, _iface, _signal, params, _user_data):
+        _name, _old_owner, new_owner = params.unpack()
+        if new_owner:
+            self.register_with_nm()
+
+    def _on_method_call(self, _conn, _sender, _path, _iface, method_name, parameters, invocation):
+        if method_name == "GetSecrets":
+            connection, connection_path, setting_name, hints, flags = parameters.unpack()
+            thread = threading.Thread(
+                target=self._handle_get_secrets,
+                args=(connection, connection_path, setting_name, hints, flags, invocation),
+                daemon=True,
+            )
+            thread.start()
+        elif method_name == "CancelGetSecrets":
+            connection_path, setting_name = parameters.unpack()
+            self._cancel_dialog(connection_path, setting_name)
+            invocation.return_value(None)
+        elif method_name == "SaveSecrets":
+            connection, _connection_path = parameters.unpack()
+            threading.Thread(
+                target=self._handle_save_secrets,
+                args=(connection, invocation),
+                daemon=True,
+            ).start()
+        elif method_name == "DeleteSecrets":
+            connection, _connection_path = parameters.unpack()
+            threading.Thread(
+                target=self._handle_delete_secrets,
+                args=(connection, invocation),
+                daemon=True,
+            ).start()
+        else:
+            invocation.return_dbus_error(
+                "org.freedesktop.NetworkManager.SecretAgent.Error.Failed",
+                f"Unsupported method: {method_name}",
+            )
+
+    def _cancel_dialog(self, connection_path: str, setting_name: str):
+        key = (connection_path, setting_name)
+        with self.lock:
+            proc = self.active_dialogs.pop(key, None)
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _find_vpn_plugin(service_type: str):
+        search_dirs = ["/usr/lib/NetworkManager/VPN", "/etc/NetworkManager/VPN"]
+        for d in search_dirs:
+            for path in glob.glob(os.path.join(d, "*.name")):
+                try:
+                    plugin = NM.VpnPluginInfo.new_from_file(path)
+                    if plugin and plugin.get_service() == service_type:
+                        return plugin
+                except Exception:
+                    continue
+        return None
+
+    @staticmethod
+    def _lookup_keyring_secrets(uuid: str, setting_name: str) -> dict:
+        result = {}
+        if not uuid:
+            return result
+        try:
+            service = Secret.Service.get_sync(Secret.ServiceFlags.LOAD_COLLECTIONS, None)
+            items = service.search_sync(
+                NM_SECRET_SCHEMA,
+                {"connection-uuid": uuid, "setting-name": setting_name},
+                Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS,
+                None,
+            )
+            for item in items or []:
+                attrs = item.get_attributes() or {}
+                s_key = attrs.get("setting-key")
+                s_val_obj = item.get_secret()
+                if s_key and s_val_obj:
+                    s_text = s_val_obj.get_text()
+                    if s_text is not None:
+                        result[s_key] = s_text
+        except Exception as exc:
+            print(f"[nirakase-nm-agent] Keyring lookup warning: {exc}", file=sys.stderr)
+        return result
+
+    def _run_vpn_auth_dialog(
+        self,
+        connection_path: str,
+        setting_name: str,
+        plugin,
+        uuid: str,
+        conn_name: str,
+        service_type: str,
+        vpn_data: dict,
+        vpn_secrets: dict,
+        hints: list,
+        flags: int,
+    ):
+        auth_dialog = plugin.get_auth_dialog()
+        if not auth_dialog or not os.path.isfile(auth_dialog):
+            return None, "No auth-dialog binary found for VPN plugin"
+
+        cmd = [auth_dialog, "-u", uuid, "-n", conn_name, "-s", service_type]
+        if flags & (FLAG_ALLOW_INTERACTION | FLAG_USER_REQUESTED):
+            cmd.append("-i")
+        if flags & FLAG_REQUEST_NEW:
+            cmd.append("-r")
+        if plugin.supports_hints() and hints:
+            for h in hints:
+                cmd.extend(["-t", str(h)])
+
+        stdin_lines = []
+        for k, v in (vpn_data or {}).items():
+            if k is not None and v is not None:
+                stdin_lines.append(f"DATA_KEY={k}\nDATA_VAL={v}\n")
+        for k, v in (vpn_secrets or {}).items():
+            if k is not None and v is not None:
+                stdin_lines.append(f"SECRET_KEY={k}\nSECRET_VAL={v}\n")
+        stdin_lines.append("DONE\n")
+        stdin_payload = "".join(stdin_lines).encode("utf-8")
+
+        key = (connection_path, setting_name)
+        out_secrets = {}
+        stderr_output = ""
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            with self.lock:
+                self.active_dialogs[key] = proc
+
+            # 1. Send VPN data and existing secrets ending with DONE, keeping stdin open
+            #    while the GTK auth-dialog runs its interactive loop.
+            if proc.stdin:
+                proc.stdin.write(stdin_payload)
+                proc.stdin.flush()
+
+            # 2. Read key/value pairs from stdout until an empty line signals completion
+            if proc.stdout:
+                while True:
+                    key_line = proc.stdout.readline()
+                    if not key_line:
+                        break
+                    k = key_line.decode("utf-8", errors="replace").rstrip("\r\n")
+                    if k == "":
+                        break
+                    val_line = proc.stdout.readline()
+                    if not val_line:
+                        break
+                    v = val_line.decode("utf-8", errors="replace").rstrip("\r\n")
+                    out_secrets[k] = v
+
+            # 3. Signal the auth-dialog to exit cleanly with QUIT
+            if proc.stdin:
+                try:
+                    proc.stdin.write(b"QUIT\n")
+                    proc.stdin.flush()
+                    proc.stdin.close()
+                except Exception:
+                    pass
+
+            if proc.stderr:
+                stderr_output = proc.stderr.read().decode("utf-8", errors="replace").strip()
+
+            proc.wait(timeout=5)
+        except Exception as exc:
+            return None, f"Failed to execute auth-dialog: {exc}"
+        finally:
+            with self.lock:
+                self.active_dialogs.pop(key, None)
+
+        if proc.returncode != 0 and not out_secrets:
+            return None, stderr_output or "Authentication canceled by user"
+
+        return out_secrets, None
+
+    def _handle_get_secrets(self, connection, connection_path, setting_name, hints, flags, invocation):
+        conn_setting = connection.get("connection", {})
+        uuid = str(conn_setting.get("uuid", ""))
+        conn_name = str(conn_setting.get("id", uuid or "VPN"))
+
+        keyring_secrets = self._lookup_keyring_secrets(uuid, setting_name)
+
+        if setting_name == "vpn":
+            vpn_setting = connection.get("vpn", {})
+            service_type = str(vpn_setting.get("service-type", ""))
+            vpn_data = dict(vpn_setting.get("data", {}))
+            vpn_secrets = dict(vpn_setting.get("secrets", {}))
+            vpn_secrets.update(keyring_secrets)
+
+            plugin = self._find_vpn_plugin(service_type)
+            interactive = bool(flags & (FLAG_ALLOW_INTERACTION | FLAG_USER_REQUESTED | FLAG_REQUEST_NEW))
+
+            if plugin and plugin.get_auth_dialog() and (interactive or not vpn_secrets):
+                if not (flags & (FLAG_ALLOW_INTERACTION | FLAG_USER_REQUESTED)):
+                    GLib.idle_add(
+                        invocation.return_dbus_error,
+                        "org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets",
+                        "Interactive authentication required for VPN.",
+                    )
+                    return
+
+                dialog_secrets, err = self._run_vpn_auth_dialog(
+                    connection_path,
+                    setting_name,
+                    plugin,
+                    uuid,
+                    conn_name,
+                    service_type,
+                    vpn_data,
+                    vpn_secrets,
+                    hints,
+                    flags,
+                )
+                if dialog_secrets is None or not dialog_secrets:
+                    GLib.idle_add(
+                        invocation.return_dbus_error,
+                        "org.freedesktop.NetworkManager.SecretAgent.Error.UserCanceled",
+                        err or "VPN authentication canceled.",
+                    )
+                    return
+                vpn_secrets.update(dialog_secrets)
+
+            if not vpn_secrets:
+                GLib.idle_add(
+                    invocation.return_dbus_error,
+                    "org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets",
+                    "No VPN secrets available.",
+                )
+                return
+
+            variant_secrets = {
+                "vpn": {
+                    "secrets": GLib.Variant("a{ss}", {str(k): str(v) for k, v in vpn_secrets.items()})
+                }
+            }
+            GLib.idle_add(invocation.return_value, GLib.Variant("(a{sa{sv}})", (variant_secrets,)))
+            return
+
+        # Non-VPN settings stored in user keyring
+        if keyring_secrets and not (flags & FLAG_REQUEST_NEW):
+            setting_dict = {str(k): GLib.Variant("s", str(v)) for k, v in keyring_secrets.items()}
+            GLib.idle_add(
+                invocation.return_value,
+                GLib.Variant("(a{sa{sv}})", ({setting_name: setting_dict},)),
+            )
+            return
+
+        GLib.idle_add(
+            invocation.return_dbus_error,
+            "org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets",
+            f"No secrets found for {setting_name}.",
+        )
+
+    def _handle_save_secrets(self, connection, invocation):
+        conn_setting = connection.get("connection", {})
+        uuid = str(conn_setting.get("uuid", ""))
+        conn_name = str(conn_setting.get("id", uuid))
+
+        if uuid and "vpn" in connection:
+            vpn_secrets = connection["vpn"].get("secrets", {})
+            for k, v in vpn_secrets.items():
+                if k in ("cookie", "gwcert", "resolve"):
+                    continue
+                try:
+                    Secret.password_store_sync(
+                        NM_SECRET_SCHEMA,
+                        {
+                            "connection-uuid": uuid,
+                            "setting-name": "vpn",
+                            "setting-key": str(k),
+                        },
+                        Secret.COLLECTION_DEFAULT,
+                        f"Network secret for {conn_name}/vpn/{k}",
+                        str(v),
+                        None,
+                    )
+                except Exception:
+                    pass
+
+        GLib.idle_add(invocation.return_value, None)
+
+    def _handle_delete_secrets(self, connection, invocation):
+        conn_setting = connection.get("connection", {})
+        uuid = str(conn_setting.get("uuid", ""))
+        if uuid:
+            try:
+                Secret.password_clear_sync(
+                    NM_SECRET_SCHEMA,
+                    {"connection-uuid": uuid},
+                    None,
+                )
+            except Exception:
+                pass
+        GLib.idle_add(invocation.return_value, None)
+
+
+def main():
+    loop = GLib.MainLoop()
+    _agent = NirakaseSecretAgent(loop)
+
+    def _quit(*_args):
+        loop.quit()
+
+    signal.signal(signal.SIGINT, _quit)
+    signal.signal(signal.SIGTERM, _quit)
+    loop.run()
+
+
+if __name__ == "__main__":
+    main()

@@ -24,7 +24,7 @@ StatusIndicatorButton {
     showBadge: count > 0
     badgeColor: count > 100 ? Theme.danger : count > 40 ? "#E5A50A" : count === 0 ? "green" : "#3584E4"
 
-    tooltip: count > 0 ? "Actualizaciones: " + count + "\n• Oficiales: " + repoUpdates + "\n• AUR: " + aurUpdates + "\n[Clic izq: Actualizar]" : "Sistema al día"
+    tooltip: count > 0 ? "Updates: " + count + "\n• Official: " + repoUpdates + "\n• AUR: " + aurUpdates + "\n[Left click: Update]" : "System up to date"
 
     SequentialAnimation on iconColor {
         running: count > 100
@@ -42,12 +42,16 @@ StatusIndicatorButton {
         uwLeftClick.exec(["xdg-terminal-exec", "--app-id=org.nirakase.update", "-e", "nirakase-update-system"]);
     }
 
-    // Right click: Force manual check right now
-    onRightClicked: {
+    function refresh() {
         if (!checkProc.running) {
             root.isChecking = true;
             checkProc.running = true;
         }
+    }
+
+    // Right click: Force manual check right now
+    onRightClicked: {
+        root.refresh();
     }
 
     // Process to count official and AUR packages

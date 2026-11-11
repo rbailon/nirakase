@@ -1,71 +1,50 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import '../components/'
+import "../services"
 import ".."
 
 StatusIndicatorButton {
     id: root
 
-    // hypridle service state
-    property bool isIdleActive: true
+    signal openRequested()
 
-    // Bindings with StatusIndicatorButton
+    // Bindings with StatusIndicatorButton via native Wayland IdleService
     available: true
-    active: root.isIdleActive
-    icon: root.isIdleActive ? "󰒲" : "󰒳" // Normal : Inhibited
+    active: IdleService.isIdleActive
+    icon: IdleService.icon
 
     // Status dot configuration
     dotOnly: true
-    showBadge: !root.isIdleActive  // Shows the dot only when idle is inhibited
-    badgeColor: "#E5A50A"          // Warning amber/orange color
+    showBadge: IdleService.inhibited // Shows the amber dot only when idle is inhibited (Caffeine mode)
+    badgeColor: "#E5A50A"            // Warning amber/orange color
 
-    // Left and right click toggle the service
-    onClicked: root.toggleIdle()
-    onRightClicked: root.toggleIdle()
-
-    Process { id: iwLeftClick }
-
-    function toggleIdle() {
-        var action = root.isIdleActive ? "stop" : "start";
-        iwLeftClick.exec(["systemctl", "--user", action, "hypridle.service"]);
-
-        // Optimistic UI update
-        root.isIdleActive = !root.isIdleActive;
-        quickRefreshTimer.restart();
+    tooltip: {
+        if (IdleService.inhibited) {
+            return "󰒳 Caffeine Mode: Idle inhibited\nLeft click: Enable idle · Right click: Configure timeouts";
+        }
+        var lines = ["󰒲 Automatic idle active"];
+        lines.push(
+            "Dim: " + IdleService.formatDuration(IdleService.dimTimeout) +
+            " · Lock: " + IdleService.formatDuration(IdleService.lockTimeout)
+        );
+        lines.push(
+            "Monitor: " + IdleService.formatDuration(IdleService.dpmsTimeout) +
+            " · Suspend: " + IdleService.formatDuration(IdleService.suspendTimeout)
+        );
+        return lines.join("\n");
     }
 
-    // Process to check if hypridle.service is active
-    Process {
-        id: statusProcess
-        command: ["systemctl", "--user", "is-active", "hypridle.service"]
-        running: true
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: data => {
-                root.isIdleActive = (data.trim() === "active");
-            }
-        }
-    }
+    // Left click: Toggle Caffeine / Idle Inhibitor immediately
+    onClicked: IdleService.toggleInhibit()
 
-    // Periodic check every 3 seconds
-    Timer {
-        interval: 3000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            if (!statusProcess.running) statusProcess.running = true;
-        }
-    }
-
-    // Quick refresh after interaction
-    Timer {
-        id: quickRefreshTimer
-        interval: 300
-        onTriggered: {
-            if (!statusProcess.running) statusProcess.running = true;
-        }
+    // Right click: Open Idle timeout configuration panel in Control Center
+    onRightClicked: {
+        NetworkService.wifiPanelOpen = false;
+        BluetoothService.btPanelOpen = false;
+        AudioService.audioPanelOpen = false;
+        IdleService.idlePanelOpen = true;
+        root.openRequested();
     }
 }

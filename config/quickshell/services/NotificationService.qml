@@ -36,6 +36,13 @@ Item {
             notif.tracked = true;
             root.history = list;
 
+            notif.closed.connect(function() {
+                root.history = root.history.filter(item => item && item !== notif);
+                if (root.currentPopup === notif) {
+                    root.currentPopup = null;
+                }
+            });
+
             // Emit event for widget and popups (if DND mode is not active)
             root.notificationReceived(notif);
 
@@ -53,16 +60,22 @@ Item {
     // Dismiss a specific notification
     function dismiss(notif) {
         if (!notif) return;
+        root.history = root.history.filter(item => item && item !== notif);
+        if (root.currentPopup === notif) {
+            root.currentPopup = null;
+        }
         notif.dismiss();
-        root.history = root.history.filter(item => item !== notif);
     }
 
     // Clear all notifications
     function clearAll() {
-        for (var i = 0; i < root.history.length; i++) {
-            root.history[i].dismiss();
-        }
+        var oldList = root.history.slice();
         root.history = [];
         root.currentPopup = null;
+        for (var i = 0; i < oldList.length; i++) {
+            if (oldList[i]) {
+                oldList[i].dismiss();
+            }
+        }
     }
 }

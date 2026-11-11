@@ -21,31 +21,31 @@ FocusScope {
     // Power actions and corresponding system commands
     readonly property var actions: [
         {
-            name: "Bloquear",
+            name: "Lock",
             icon: "󰌾",
             cmd: "swaylock -f || swaylock || loginctl lock-session",
             isDanger: false
         },
         {
-            name: "Suspender",
+            name: "Suspend",
             icon: "󰤄",
-            cmd: "systemctl suspend",
+            cmd: "(pidof swaylock >/dev/null || swaylock -f) & sleep 0.3 && systemctl suspend",
             isDanger: false
         },
         {
-            name: "Cerrar sesión",
+            name: "Log Out",
             icon: "󰍃",
             cmd: "niri msg action quit --skip-confirmation || loginctl terminate-user $USER",
             isDanger: false
         },
         {
-            name: "Reiniciar",
+            name: "Reboot",
             icon: "󰑐",
             cmd: "systemctl reboot",
             isDanger: false
         },
         {
-            name: "Apagar",
+            name: "Power Off",
             icon: "󰐥",
             cmd: "systemctl poweroff",
             isDanger: true
@@ -106,8 +106,6 @@ FocusScope {
 
             delegate: Item {
                 id: itemWrapper
-                required property var modelData
-                required property int index
 
                 readonly property bool isFocused: index === root.focusedIndex
                 readonly property bool isDanger: modelData.isDanger
@@ -154,7 +152,7 @@ FocusScope {
 
                         // Action icon
                         Text {
-                            text: itemWrapper.modelData.icon
+                            text: modelData.icon
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 22
                             color: {
@@ -170,7 +168,7 @@ FocusScope {
 
                         // Action label
                         Text {
-                            text: itemWrapper.modelData.name
+                            text: modelData.name
                             font.pixelSize: 10
                             font.weight: itemWrapper.isFocused ? Font.Bold : Font.Medium
                             color: {
@@ -193,12 +191,12 @@ FocusScope {
                         cursorShape: Qt.PointingHandCursor
 
                         onEntered: {
-                            root.focusedIndex = itemWrapper.index;
+                            root.focusedIndex = index;
                         }
 
                         onClicked: {
-                            root.focusedIndex = itemWrapper.index;
-                            root.runAction(itemWrapper.index);
+                            root.focusedIndex = index;
+                            root.runAction(index);
                         }
                     }
                 }

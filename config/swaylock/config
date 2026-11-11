@@ -20,7 +20,7 @@ effect-vignette=0.5:0.5
 
 # Font & Typography
 font="Inter"
-datestr=%A, %d de %B
+datestr=%A, %d %B
 timestr=%H:%M
 clock
 

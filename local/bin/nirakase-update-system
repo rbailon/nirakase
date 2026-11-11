@@ -83,7 +83,7 @@ while true; do
         echo -e "\n${BLUE}[System]${NC} Starting full system update via paru..."
         if paru -Syu; then
             notify-send -u normal -i software-properties "Nirakase System Updater" "System updated successfully."
-            pkill -RTMIN+7 waybar 2>/dev/null || true
+            quickshell ipc call island refreshUpdates >/dev/null 2>&1 || true
             echo -e "\n${GREEN}[✔] Full system update completed successfully.${NC}"
             echo
             read -n 1 -s -r -p "Press any key to continue..."
@@ -104,7 +104,7 @@ while true; do
         echo -e "\n${BLUE}[System]${NC} Starting official packages update via pacman..."
         if sudo pacman -Syu; then
             notify-send -u normal -i software-properties "Nirakase System Updater" "Official packages updated successfully."
-            pkill -RTMIN+7 waybar 2>/dev/null || true
+            quickshell ipc call island refreshUpdates >/dev/null 2>&1 || true
             echo -e "\n${GREEN}[✔] Official packages update completed successfully.${NC}"
             echo
             read -n 1 -s -r -p "Press any key to continue..."
@@ -125,7 +125,7 @@ while true; do
         echo -e "\n${BLUE}[AUR]${NC} Starting AUR packages update via paru..."
         if paru -Sua; then
             notify-send -u normal -i software-properties "Nirakase System Updater" "AUR packages updated successfully."
-            pkill -RTMIN+7 waybar 2>/dev/null || true
+            quickshell ipc call island refreshUpdates >/dev/null 2>&1 || true
             echo -e "\n${GREEN}[✔] AUR packages update completed successfully.${NC}"
             echo
             read -n 1 -s -r -p "Press any key to continue..."
@@ -206,7 +206,7 @@ fi
 echo -e "\n${BLUE}[System]${NC} Running: paru -S ${pkgs_to_update[*]}"
 if paru -S "${pkgs_to_update[@]}"; then
     notify-send -u normal -i software-properties "Nirakase System Updater" "Selected packages updated successfully."
-    pkill -RTMIN+7 waybar 2>/dev/null || true
+    quickshell ipc call island refreshUpdates >/dev/null 2>&1 || true
     echo -e "\n${GREEN}[✔] Selected packages update completed successfully.${NC}"
     echo
     read -n 1 -s -r -p "Press any key to continue..."

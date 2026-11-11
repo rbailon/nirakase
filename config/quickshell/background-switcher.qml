@@ -21,10 +21,6 @@ ShellRoot {
         id: imageModel
     }
 
-    Process {
-        id: applyProcess
-    }
-
     // Load cached index and match active wallpaper
     FileView {
         path: root.indexFile
@@ -45,7 +41,7 @@ ShellRoot {
                     root.ready = true;
                 });
             } catch (e) {
-                console.error("Error cargando índice de fondos:", e);
+                console.error("Failed to load wallpaper index:", e);
                 root.ready = true;
             }
         }
@@ -54,7 +50,7 @@ ShellRoot {
     function applySelection() {
         if (selectedIndex >= 0 && selectedIndex < imageModel.count) {
             var chosen = imageModel.get(selectedIndex).path;
-            applyProcess.exec(["nirakase-wallpaper", chosen]);
+            Quickshell.execDetached(["nirakase-wallpaper", chosen]);
         }
         Qt.quit();
     }
@@ -229,7 +225,7 @@ ShellRoot {
                 anchors.top: carouselContainer.bottom
                 anchors.topMargin: 28
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "← / → : Navegar   •   ENTER : Aplicar   •   ESC : Cancelar"
+                text: "← / → : Navigate   •   ENTER : Apply   •   ESC : Cancel"
                 color: Theme.textSecondary
                 font.pixelSize: 12
             }

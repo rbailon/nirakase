@@ -1,0 +1,19 @@
+[Unit]
+Description=Proton Pass CLI SSH Agent
+Documentation=https://protonpass.github.io/pass-cli/
+After=network.target graphical-session.target dbus.socket
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecCondition=/bin/sh -c 'command -v pass-cli >/dev/null 2>&1 && pass-cli info >/dev/null 2>&1'
+ExecStartPre=-/usr/bin/rm -f %t/proton-pass-agent.socket
+ExecStart=/usr/bin/env pass-cli ssh-agent start --socket-path %t/proton-pass-agent.socket
+ExecStopPost=-/usr/bin/rm -f %t/proton-pass-agent.socket
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

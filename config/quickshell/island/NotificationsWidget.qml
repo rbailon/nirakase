@@ -28,12 +28,12 @@ StatusIndicatorButton {
     // Waybar-style informative tooltip
     tooltip: {
         if (NotificationService.dnd) {
-            return "Modo No Molestar ACTIVO\n[Clic der: Desactivar DND]";
+            return "Do Not Disturb ACTIVE\n[Right click: Disable DND]";
         }
         if (root.count > 0) {
-            return root.count + " notificación(es) pendiente(s)\n[Clic der: Activar No Molestar]\n[Clic izq: Limpiar bandeja]";
+            return root.count + " pending notification(s)\n[Right click: Enable Do Not Disturb]\n[Left click: Open Control Center]";
         }
-        return "Sin notificaciones pendientes\n[Clic der: Activar No Molestar]";
+        return "No pending notifications\n[Right click: Enable Do Not Disturb]";
     }
 
     // Clicks

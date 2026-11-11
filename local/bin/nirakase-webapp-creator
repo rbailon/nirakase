@@ -106,27 +106,25 @@ done
 # 3. Define paths and directories
 ICONS_DIR="${HOME}/.local/share/applications/icons"
 DESKTOP_DIR="${HOME}/.local/share/applications"
-LOCAL_BIN_DIR="${HOME}/.local/bin"
 
 mkdir -p "$ICONS_DIR"
 mkdir -p "$DESKTOP_DIR"
-mkdir -p "$LOCAL_BIN_DIR"
 
 # Generate a safe filename
 safe_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]/-/g' -e 's/-\+/-/g' -e 's/^-//' -e 's/-$//')
 icon_path="${ICONS_DIR}/${safe_name}.png"
 desktop_path="${DESKTOP_DIR}/${safe_name}.desktop"
 
-# 4. Ensure the launch command is in ~/.local/bin
+# 4. Ensure the launch command is available in PATH
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAUNCHER_SOURCE="${SCRIPT_DIR}/nirakase-launch-webapp"
 
-if [ -f "$LAUNCHER_SOURCE" ]; then
-    if [ ! -f "${LOCAL_BIN_DIR}/nirakase-launch-webapp" ]; then
-        ln -sf "$LAUNCHER_SOURCE" "${LOCAL_BIN_DIR}/nirakase-launch-webapp"
-        chmod +x "${LOCAL_BIN_DIR}/nirakase-launch-webapp"
-        echo -e "${GREEN}[System]${NC} Linked launcher command to ${BLUE}${LOCAL_BIN_DIR}/nirakase-launch-webapp${NC}"
-    fi
+if ! command -v nirakase-launch-webapp >/dev/null 2>&1 && [ -f "$LAUNCHER_SOURCE" ]; then
+    LOCAL_BIN_DIR="${HOME}/.local/bin"
+    mkdir -p "$LOCAL_BIN_DIR"
+    ln -sf "$LAUNCHER_SOURCE" "${LOCAL_BIN_DIR}/nirakase-launch-webapp"
+    chmod +x "${LOCAL_BIN_DIR}/nirakase-launch-webapp"
+    echo -e "${GREEN}[System]${NC} Linked launcher command to ${BLUE}${LOCAL_BIN_DIR}/nirakase-launch-webapp${NC}"
 fi
 
 # 5. Download favicon automatically

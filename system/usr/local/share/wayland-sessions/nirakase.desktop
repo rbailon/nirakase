@@ -1,5 +1,5 @@
 [Desktop Entry]
 Name=Nirakase (Niri uwsm)
-Comment=Entorno Omakase basado en Niri y gestionado por uwsm
+Comment=My custom environment based on Niri and managed by uwsm
 Exec=uwsm start -g -1 -e -D Niri niri.desktop
 Type=Application

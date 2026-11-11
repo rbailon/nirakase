@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Wayland
 import Quickshell.Services.Notifications
 import ".."
 import "../components"
@@ -7,6 +8,9 @@ import "../services"
 
 PanelWindow {
     id: popupWindow
+
+    WlrLayershell.layer: WlrLayershell.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     anchors {
         top: true
@@ -19,7 +23,6 @@ PanelWindow {
     }
 
     exclusionMode: ExclusionMode.Ignore
-    aboveWindows: true
 
     implicitWidth: 360
     implicitHeight: card.implicitHeight
@@ -30,7 +33,7 @@ PanelWindow {
 
     visible: currentNotif !== null
 
-    // Temporizador de autocierre (se pausa si está hovered o si es crítica)
+    // Auto-close timer (paused when hovered or if notification is critical)
     Timer {
         id: autoCloseTimer
         interval: {
@@ -50,7 +53,7 @@ PanelWindow {
         width: parent.width
         notification: popupWindow.currentNotif
 
-        // Animación de deslizamiento y desvanecimiento
+        // Slide and fade animation
         transform: Translate {
             x: popupWindow.visible ? 0 : 40
             Behavior on x {

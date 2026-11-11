@@ -9,24 +9,25 @@ import "../services"
 Rectangle {
     id: root
 
-    // Objeto notificación a representar
+    // Notification object to display
     property var notification: null
 
     readonly property bool isCritical: notification !== null && notification.urgency === NotificationUrgency.Critical
     readonly property alias hovered: hoverWatcher.hovered
 
-    // Señales para eventos
+    // Signals for events
     signal dismissed()
     signal actionInvoked(var action)
 
-    // Helper para resolver ruta de iconos locales o del tema
+    // Helper to resolve local or theme icon paths
     function resolveIcon(icon) {
         if (!icon || icon === "") return "";
-        if (icon.startsWith("/") || icon.startsWith("file://")) return icon;
+        if (icon.startsWith("/")) return "file://" + icon;
+        if (icon.startsWith("file://")) return icon;
         return Quickshell.iconPath(icon, true);
     }
 
-    // Lista de acciones visibles (excluyendo la acción "default")
+    // List of visible actions (excluding the "default" action)
     readonly property var visibleActions: {
         if (!root.notification || !root.notification.actions) return [];
         var list = [];
@@ -60,13 +61,13 @@ Rectangle {
         }
         spacing: 8
 
-        // Fila Superior: Nombre de app, Badge crítico y Botón de cierre
+        // Top Row: App name, Critical badge, and Close button
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
 
             Text {
-                text: root.notification ? (root.notification.appName || "Sistema") : "Sistema"
+                text: root.notification ? (root.notification.appName || "System") : "System"
                 font.family: "JetBrainsMono Nerd Font Propo"
                 font.pixelSize: 10
                 font.weight: Font.Bold
@@ -75,7 +76,7 @@ Rectangle {
                 elide: Text.ElideRight
             }
 
-            // Badge para notificaciones críticas
+            // Badge for critical notifications
             Rectangle {
                 visible: root.isCritical
                 color: Theme.danger || "#EF4444"
@@ -87,7 +88,7 @@ Rectangle {
                 Text {
                     id: criticalLabel
                     anchors.centerIn: parent
-                    text: "CRÍTICO"
+                    text: "CRITICAL"
                     font.family: "JetBrainsMono Nerd Font Propo"
                     font.pixelSize: 9
                     font.weight: Font.Bold
@@ -95,7 +96,7 @@ Rectangle {
                 }
             }
 
-            // Botón de descarte (󰅖)
+            // Dismiss button (󰅖)
             Text {
                 text: "󰅖"
                 font.family: "JetBrainsMono Nerd Font Propo"
@@ -117,7 +118,7 @@ Rectangle {
             }
         }
 
-        // Fila Central: Icono o imagen junto al título y contenido
+        // Middle Row: Icon or image alongside title and content
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
@@ -170,7 +171,7 @@ Rectangle {
             }
         }
 
-        // Fila Inferior: Botones de acciones interactivas de D-Bus
+        // Bottom Row: Interactive D-Bus action buttons
         RowLayout {
             visible: root.visibleActions.length > 0
             spacing: 8
@@ -182,7 +183,6 @@ Rectangle {
 
                 Rectangle {
                     id: actionBtn
-                    required property var modelData
                     Layout.fillWidth: true
                     implicitHeight: 26
                     radius: 6
@@ -192,7 +192,7 @@ Rectangle {
 
                     Text {
                         anchors.centerIn: parent
-                        text: actionBtn.modelData ? (actionBtn.modelData.text || "") : ""
+                        text: modelData ? (modelData.text || "") : ""
                         font.family: "JetBrainsMono Nerd Font Propo"
                         font.pixelSize: 10
                         font.weight: Font.Medium
@@ -206,9 +206,9 @@ Rectangle {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            if (actionBtn.modelData) {
-                                actionBtn.modelData.invoke();
-                                root.actionInvoked(actionBtn.modelData);
+                            if (modelData) {
+                                modelData.invoke();
+                                root.actionInvoked(modelData);
                             }
                         }
                     }
@@ -217,7 +217,7 @@ Rectangle {
         }
     }
 
-    // Clic en la tarjeta: invoca acción "default" y descarta si no es residente
+    // Card click: invokes "default" action and dismisses if not resident
     MouseArea {
         anchors.fill: parent
         z: -1

@@ -78,6 +78,7 @@ FocusScope {
             themeScope.cancel();
             event.accepted = true;
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+            themeScope.initialTheme = Theme.themesList[themeScope.focusedIndex].id;
             Theme.setTheme(Theme.themesList[themeScope.focusedIndex].id, true);
             themeScope.themeSelected();
             event.accepted = true;
@@ -111,8 +112,6 @@ FocusScope {
 
                 delegate: Item {
                     id: cardWrapper
-                    required property var modelData
-                    required property int index
 
                     readonly property bool isFocused: index === themeScope.focusedIndex
                     // readonly property bool isSelected: Theme.currentThemeName === modelData.id
@@ -146,8 +145,8 @@ FocusScope {
                                 width: 76
                                 height: 48
                                 radius: 8
-                                color: cardWrapper.modelData.obj.background
-                                border.color: cardWrapper.isFocused ? Theme.accent : cardWrapper.modelData.obj.border
+                                color: modelData.obj.background
+                                border.color: cardWrapper.isFocused ? Theme.accent : modelData.obj.border
                                 border.width: 1
                                 anchors.horizontalCenter: parent.horizontalCenter
 
@@ -159,7 +158,7 @@ FocusScope {
                                     width: 20
                                     height: 2
                                     radius: 1
-                                    color: cardWrapper.modelData.obj.textMuted
+                                    color: modelData.obj.textMuted
                                     opacity: 0.6
                                 }
 
@@ -168,14 +167,14 @@ FocusScope {
                                     width: 36
                                     height: 14
                                     radius: 5
-                                    color: cardWrapper.modelData.obj.accent
+                                    color: modelData.obj.accent
                                     anchors.centerIn: parent
 
                                     Rectangle {
                                         width: 12
                                         height: 3
                                         radius: 1.5
-                                        color: cardWrapper.modelData.obj.badgeFocusedText
+                                        color: modelData.obj.badgeFocusedText
                                         anchors.centerIn: parent
                                     }
                                 }
@@ -185,7 +184,7 @@ FocusScope {
                                     width: 28
                                     height: 3
                                     radius: 1.5
-                                    color: cardWrapper.modelData.obj.textSecondary
+                                    color: modelData.obj.textSecondary
                                     anchors.bottom: parent.bottom
                                     anchors.bottomMargin: 5
                                     anchors.horizontalCenter: parent.horizontalCenter
@@ -194,7 +193,7 @@ FocusScope {
 
                             // Theme Name Label
                             Text {
-                                text: cardWrapper.modelData.name
+                                text: modelData.name
                                 font.pixelSize: 11
                                 font.weight: cardWrapper.isFocused ? Font.Bold : Font.Medium
                                 color: cardWrapper.isFocused ? Theme.accent : Theme.textPrimary
@@ -208,8 +207,9 @@ FocusScope {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                themeScope.focusedIndex = cardWrapper.index;
-                                Theme.setTheme(cardWrapper.modelData.id);
+                                themeScope.focusedIndex = index;
+                                themeScope.initialTheme = modelData.id;
+                                Theme.setTheme(modelData.id);
                                 themeScope.themeSelected();
                             }
                         }

@@ -8,7 +8,7 @@ Item {
     id: root
 
     implicitWidth: 260
-    implicitHeight: 28
+    implicitHeight: 22
 
     readonly property bool isProgress: OsdService.osdType === "volume" || 
                                        OsdService.osdType === "mic" || 
@@ -25,7 +25,7 @@ Item {
         Label {
             text: OsdService.icon
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 16
+            font.pixelSize: 15
             color: OsdService.stateColor
             Layout.alignment: Qt.AlignVCenter
             Layout.preferredWidth: 20
@@ -35,15 +35,15 @@ Item {
         // 2. Center Content (Progress bar OR Badge)
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: 22
+            Layout.preferredHeight: 18
             Layout.alignment: Qt.AlignVCenter
 
             // Option A: Progress Bar
             Rectangle {
                 anchors.centerIn: parent
                 width: parent.width
-                height: 6
-                radius: 3
+                height: 5
+                radius: 2.5
                 color: Theme.surfaceHover
                 visible: root.isProgress
 
@@ -52,7 +52,7 @@ Item {
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     width: Math.min(parent.width, Math.max(0, parent.width * (OsdService.level / 100.0)))
-                    radius: 3
+                    radius: 2.5
                     color: OsdService.stateColor
 
                     Behavior on width {
@@ -64,9 +64,9 @@ Item {
             // Option B: State Badge (Caps Lock, Num Lock, Power Profiles)
             Rectangle {
                 anchors.centerIn: parent
-                width: Math.min(parent.width, badgeText.implicitWidth + 18)
-                height: 20
-                radius: 10
+                width: Math.min(parent.width, badgeText.implicitWidth + 16)
+                height: 18
+                radius: 9
                 color: Qt.rgba(OsdService.stateColor.r, OsdService.stateColor.g, OsdService.stateColor.b, 0.15)
                 border.width: 1
                 border.color: Qt.rgba(OsdService.stateColor.r, OsdService.stateColor.g, OsdService.stateColor.b, 0.4)
@@ -89,11 +89,11 @@ Item {
             visible: root.isProgress
             text: OsdService.label
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 12
+            font.pixelSize: 11
             font.bold: true
             color: OsdService.isMuted ? Theme.danger : Theme.textSecondary
             Layout.alignment: Qt.AlignVCenter
-            Layout.preferredWidth: 42
+            Layout.preferredWidth: 40
             horizontalAlignment: Text.AlignRight
         }
     }

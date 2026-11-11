@@ -1,19 +1,15 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
-import "../components"
 import ".."
 
 Item {
     id: root
 
-    property bool embedMode: false
+    signal doubleClicked()
 
-    property int paddingLeft: embedMode ? 0 : 14
-    property int paddingRight: embedMode ? 0 : 14
-
-    implicitWidth: embedMode ? wsRow.implicitWidth : islandPill.implicitWidth
-    implicitHeight: embedMode ? wsRow.implicitHeight : islandPill.implicitHeight
+    implicitWidth: wsRow.implicitWidth
+    implicitHeight: wsRow.implicitHeight
     width: implicitWidth
     height: implicitHeight
     property var workspaces: []
@@ -101,46 +97,9 @@ Item {
         onTriggered: root.refreshWorkspaces()
     }
 
-    // Left Dynamic Island Pill Container matching central island design (Only shown when not embedded)
-    Rectangle {
-        id: islandPill
-        visible: !root.embedMode
-
-        anchors.left: parent.left
-        anchors.top: parent.top
-
-        implicitWidth: wsRow.implicitWidth + (root.paddingLeft + root.paddingRight)
-        implicitHeight: 28
-
-        width: implicitWidth
-        height: implicitHeight
-        radius: 14
-
-        color: Theme.background
-        border.color: Theme.border
-        border.width: 1
-
-        layer.enabled: true
-        layer.effect: ShadowEffect {}
-
-        Behavior on width {
-            NumberAnimation {
-                duration: 240
-                easing.type: Easing.InOutCubic
-            }
-        }
-
-        Behavior on border.color {
-            ColorAnimation { duration: 200 }
-        }
-    }
-
     Row {
         id: wsRow
-        anchors.centerIn: root.embedMode ? parent : undefined
-        anchors.left: root.embedMode ? undefined : islandPill.left
-        anchors.leftMargin: root.embedMode ? 0 : 14
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.centerIn: parent
         spacing: 6
 
         Repeater {
@@ -148,7 +107,6 @@ Item {
 
             delegate: Rectangle {
                 id: wsBadge
-                required property var modelData
                 property bool isFocused: modelData.id === root.focusedWorkspaceId
 
                 width: isFocused ? 26 : 10
@@ -174,9 +132,15 @@ Item {
                     acceptedButtons: Qt.LeftButton
                     onClicked: mouse => {
                         mouse.accepted = true;
-                        var targetRef = wsBadge.modelData.name ? String(wsBadge.modelData.name) : String(wsBadge.modelData.idx);
-                        focusProc.running = false;
-                        focusProc.exec(["niri", "msg", "action", "focus-workspace", targetRef]);
+                        if (!wsBadge.isFocused) {
+                            var targetRef = modelData.name ? String(modelData.name) : String(modelData.idx);
+                            focusProc.running = false;
+                            focusProc.exec(["niri", "msg", "action", "focus-workspace", targetRef]);
+                        }
+                    }
+                    onDoubleClicked: mouse => {
+                        mouse.accepted = true;
+                        root.doubleClicked();
                     }
                 }
             }

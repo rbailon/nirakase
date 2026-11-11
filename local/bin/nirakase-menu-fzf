@@ -117,7 +117,7 @@ while true; do
             ;;
 
         appearance)
-            choice=$(run_fzf_menu "Nirakase > Appearance > " "󰸉  Wallpaper Selector (GUI)         ${GRAY}[Mod+Alt+W]${NC}" "Appearance Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            choice=$(run_fzf_menu "Nirakase > Appearance > " "󰸉  Wallpaper Selector (GUI)         ${GRAY}[Mod+Alt+W]${NC}\n󰔎  Theme Selector (GUI)             ${GRAY}[Mod+Alt+T]${NC}" "Appearance Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
             
             if ! check_fzf_exit $? "main"; then
                 continue
@@ -130,21 +130,18 @@ while true; do
             
             case "$choice" in
                 *Wallpaper*)
-                    current_bg=$(strings ~/.cache/awww/*/* 2>/dev/null | grep -m1 -o '/home/[^ ]*' || echo "")
-                    if [[ -z "$current_bg" && -f "$HOME/.local/share/nirakase/wallpapers/wallpaper.png" ]]; then
-                        current_bg="$HOME/.local/share/nirakase/wallpapers/wallpaper.png"
-                    fi
-                    selection=$(nirakase-menu-images --selected "$current_bg" 2>/dev/null || true)
-                    if [[ -n "$selection" && -f "$selection" ]]; then
-                        nirakase-wallpaper "$selection"
-                    fi
+                    niri msg action spawn -- "${SCRIPT_DIR}/nirakase-menu-images"
+                    exit 0
+                    ;;
+                *Theme*)
+                    niri msg action spawn -- quickshell ipc call island themes
                     exit 0
                     ;;
             esac
             ;;
 
         learn)
-            choice=$(run_fzf_menu "Nirakase > Learn > " "󰗚 Niri\n󰗚 Waybar\n󰗚 Neovim\n󰗚 Arch\n󰗚 Devhints.io" "Learn Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
+            choice=$(run_fzf_menu "Nirakase > Learn > " "󰗚 Niri\n󰗚 Quickshell\n󰗚 Neovim\n󰗚 Arch\n󰗚 Devhints.io" "Learn Submenu" " [ ESC: Go Back | ENTER: Select | ↑/↓: Move ] ")
             
             if ! check_fzf_exit $? "main"; then
                 continue
@@ -158,7 +155,7 @@ while true; do
             local url=""
             case "$choice" in
                 *Niri*)          url="https://niri-wm.github.io/niri/" ;;
-                *Waybar*)        url="https://github.com/Alexays/Waybar/wiki" ;;
+                *Quickshell*)    url="https://quickshell.org/" ;;
                 *Neovim*)        url="https://www.lazyvim.org/keymaps" ;;
                 *Arch*)          url="https://wiki.archlinux.org/title/Main_page" ;;
                 *Devhints.io*)   url="https://devhints.io" ;;
@@ -196,7 +193,7 @@ while true; do
                     niri msg action spawn -- bash -c "sleep 0.2 && (pkill hyprpicker || hyprpicker -a)"
                 else
                     echo -e "${BLUE}[Trigger]${NC} Launching $type screenshot..."
-                    niri msg action spawn -- nirakase-capture-screenshot "$type"
+                    niri msg action spawn -- nirakase-capture-screenshot "$type" --delay
                 fi
                 exit 130
             fi

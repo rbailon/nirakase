@@ -1,0 +1,12 @@
+[terminal]
+vt = 1
+
+# Autologin session executed automatically on system boot
+[initial_session]
+command = "uwsm start -g -1 -e -D Niri niri.desktop"
+user = "__USER__"
+
+# Fallback greeter session shown after logging out
+[default_session]
+command = "tuigreet --time --remember --remember-session --asterisks --sessions /usr/local/share/wayland-sessions:/usr/share/wayland-sessions --cmd 'uwsm start -g -1 -e -D Niri niri.desktop' --theme 'border=magenta;text=white;prompt=cyan;time=darkgrey;action=magenta;button=yellow;container=black;input=white'"
+user = "greeter"

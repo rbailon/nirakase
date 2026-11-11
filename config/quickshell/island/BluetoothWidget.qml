@@ -1,84 +1,53 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import '../components/'
+import "../services"
 import ".."
 
 IconButtonBar {
     id: root
 
-    // Internal state property
-    property bool isPowered: false
+    signal openRequested()
 
-    // Reactive IconButtonBar configuration
-    available: false // Dynamically updated if hardware is present
-    active: root.isPowered
-    icon: root.isPowered ? "󰂯" : "󰂲" // Active : Inactive
+    // Reactive IconButtonBar configuration via BluetoothService (Quickshell.Bluetooth)
+    available: BluetoothService.hasAdapter
+    active: BluetoothService.isPowered
+    icon: BluetoothService.btIcon
 
-    Process { id: bwClick; }
-    
-    // Click actions delegated to IconButtonBar native signals
-    onClicked: {
-        bwClick.exec(["xdg-terminal-exec", "--app-id=org.nirakase.bluetooth", "-e", "bluetui"]);
-    }
+    tooltip: {
+        if (!BluetoothService.hasAdapter) return "No Bluetooth adapter";
+        if (BluetoothService.isBlocked) return "󰂲 Bluetooth blocked";
+        if (!BluetoothService.isPowered) return "󰂲 Bluetooth off";
+        if (BluetoothService.isConnecting) return "󰂰 Bluetooth: Connecting...";
+        if (!BluetoothService.isConnected) return "󰂯 Bluetooth on (Disconnected)";
 
-    onRightClicked: {
-        root.toggleBluetooth();
-    }
-
-    // Hardware presence and status check process
-    Process {
-        id: statusProcess
-        command: [
-            "bash",
-            "-c",
-            "if [ -d /sys/class/bluetooth ] && [ -n \"$(ls -A /sys/class/bluetooth 2>/dev/null)\" ]; then if bluetoothctl show 2>/dev/null | grep -q 'Powered: yes'; then echo 'ON'; else echo 'OFF'; fi; else echo 'NONE'; fi"
-        ]
-        running: true
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: data => {
-                var state = data.trim();
-                if (state === "ON") {
-                    root.available = true;
-                    root.isPowered = true;
-                } else if (state === "OFF") {
-                    root.available = true;
-                    root.isPowered = false;
-                } else {
-                    root.available = false;
-                    root.isPowered = false;
-                }
+        var lines = [];
+        var devs = BluetoothService.connectedDevices;
+        for (var i = 0; i < devs.length; i++) {
+            var d = devs[i];
+            if (!d) continue;
+            var dName = d.name || d.deviceName || d.address;
+            var dIcon = BluetoothService.deviceIcon(d);
+            var batStr = "";
+            if (d.batteryAvailable) {
+                var pct = Math.round((d.battery || 0) * 100);
+                batStr = ` · ${pct}% ${BluetoothService.batteryIcon(pct)}`;
             }
+            lines.push(`${dIcon} ${dName}${batStr}`);
         }
+        return lines.join("\n");
     }
 
-    // Periodic status polling (every 3s)
-    Timer {
-        interval: 3000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            if (!statusProcess.running) statusProcess.running = true;
-        }
+    // Left click: Open native Bluetooth selector panel in Control Center
+    onClicked: {
+        NetworkService.wifiPanelOpen = false;
+        BluetoothService.btPanelOpen = true;
+        root.openRequested();
     }
 
-    // Quick refresh after user interaction
-    Timer {
-        id: quickRefreshTimer
-        interval: 400
-        onTriggered: {
-            if (!statusProcess.running) statusProcess.running = true;
-        }
-    }
-
-    // Toggle Bluetooth power state
-    function toggleBluetooth() {
-        var newTarget = !root.isPowered;
-        bwClick.exec(newTarget ? ["bluetoothctl", "power", "on"] : ["bluetoothctl", "power", "off"]);
-        root.isPowered = newTarget;
-        quickRefreshTimer.restart();
+    // Right click: Toggle Bluetooth power natively via BlueZ D-Bus
+    onRightClicked: {
+        BluetoothService.toggleBluetooth();
     }
 }

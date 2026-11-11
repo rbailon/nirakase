@@ -4,34 +4,50 @@ module NiraShell
 singleton Config 1.0 Config.qml
 
 # components subfolder
+AudioSelectorPanel 1.0 components/AudioSelectorPanel.qml
+BluetoothSelectorPanel 1.0 components/BluetoothSelectorPanel.qml
 CollapsibleItem 1.0 components/CollapsibleItem.qml
 IconButtonBar 1.0 components/IconButtonBar.qml
+IdleSelectorPanel 1.0 components/IdleSelectorPanel.qml
 NotificationsCard 1.0 components/NotificationsCard.qml
-ShadowEffect 1.0 components/ShadowEffect.qml
+QuickToggleTile 1.0 components/QuickToggleTile.qml
 StatusIndicatorButton 1.0 components/StatusIndicatorButton.qml
+SystemSlider 1.0 components/SystemSlider.qml
+WifiSelectorPanel 1.0 components/WifiSelectorPanel.qml
 
 # island subfolder
 singleton Theme 1.0 Theme.qml
 AudioWidget 1.0 island/AudioWidget.qml
+AuthWidget 1.0 island/AuthWidget.qml
 BatteryWidget 1.0 island/BatteryWidget.qml
 BluetoothWidget 1.0 island/BluetoothWidget.qml
+ControlCenterWidget 1.0 island/ControlCenterWidget.qml
 DateTimeWidget 1.0 island/DateTimeWidget.qml
 IdleWidget 1.0 island/IdleWidget.qml
 LauncherWidget 1.0 island/LauncherWidget.qml
-NotificationCenterWidget 1.0 island/NotificationCenterWidget.qml
+MediaIsland 1.0 island/MediaIsland.qml
+NetworkWidget 1.0 island/NetworkWidget.qml
 NotificationPopup 1.0 island/NotificationPopup.qml
 NotificationsWidget 1.0 island/NotificationsWidget.qml
 OsdWidget 1.0 island/OsdWidget.qml
 PowerMenuWidget 1.0 island/PowerMenuWidget.qml
+SystemTrayWidget 1.0 island/SystemTrayWidget.qml
 SystemWidget 1.0 island/SystemWidget.qml
 ThemesWidget 1.0 island/ThemesWidget.qml
 UpdatesWidget 1.0 island/UpdatesWidget.qml
-WifiWidget 1.0 island/WifiWidget.qml
 WorkspacesWidget 1.0 island/WorkspacesWidget.qml
 
 # services subfolder
+singleton AudioService 1.0 services/AudioService.qml
+singleton BluetoothService 1.0 services/BluetoothService.qml
+singleton ClipboardService 1.0 services/ClipboardService.qml
+singleton IdleService 1.0 services/IdleService.qml
+singleton MediaService 1.0 services/MediaService.qml
+singleton NetworkService 1.0 services/NetworkService.qml
 singleton NotificationService 1.0 services/NotificationService.qml
 singleton OsdService 1.0 services/OsdService.qml
+singleton PolkitService 1.0 services/PolkitService.qml
+singleton PowerService 1.0 services/PowerService.qml
 
 # themes subfolder
 Dark 1.0 themes/Dark.qml

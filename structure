@@ -1,28 +1,39 @@
 nirakase (parent folder)
-├── config/                 <-- Folders that go in ~/.config/ (linked at folder level)
+├── config/                 <-- Folders that go in ~/.config/ (linked at folder or file level)
 │   ├── foot/               <-- Foot terminal emulator
-│   ├── hypridle/           <-- Idle daemon
-│   ├── niri/               <-- Niri Wayland compositor (includes config.d/)
-│   ├── quickshell/         <-- Desktop shell (status bar, notifications, power menu, theming, OSD)
-│   ├── swaylock/           <-- Screen locker
-│   ├── systemd/            <-- Systemd user services (replaces services-systemd)
-│   │   └── user/           <-- Contains awww.service, quickshell.service, etc.
-│   ├── walker/             <-- Walker runner and menus
-│   └── waybar/             <-- Status bar (replaced by quickshell)
-├── local/                  <-- Structure for ~/.local/share/nirakase/
+│   ├── gtk-3.0/            <-- GTK 3 theme settings (linked at file level)
+│   ├── gtk-4.0/            <-- GTK 4 theme settings (linked at file level)
+│   ├── libvirt/            <-- Libvirt user configuration
+│   ├── niri/               <-- Niri Wayland compositor (includes modular config.d/)
+│   ├── nvim/               <-- Neovim configuration (LazyVim)
+│   ├── quickshell/         <-- Unified QML desktop shell (Island bar, Control Center, notifications, launcher, idle, polkit, themes, OSD)
+│   ├── swaylock/           <-- Screen locker (swaylock-effects)
+│   ├── systemd/            <-- Systemd user services (linked at file level)
+│   │   └── user/           <-- Contains awww.service, quickshell.service, proton-pass-agent.service
+│   ├── tmux/               <-- Tmux terminal multiplexer
+│   ├── uwsm/               <-- Universal Wayland Session Manager environment
+│   └── xdg-desktop-portal/ <-- XDG Desktop Portal configuration for Niri
+├── default/                <-- Default shell initialization scripts
+│   └── bash/               <-- Modular Bash configuration (aliases, envs, functions, init, shell)
+├── local/                  <-- User resources and scripts in ~/.local/share/nirakase/local/
 │   ├── applications/       <-- Preconfigured .desktop shortcuts (copied to ~/.local/share/applications/ and dynamically ported)
-│   ├── bin/                <-- All Nirakase scripts (linked to ~/.local/share/nirakase/bin/)
+│   ├── bin/                <-- All Nirakase scripts (added directly to PATH)
 │   └── icons/              <-- High-definition icons for WebApps (copied to ~/.local/share/applications/icons/)
-├── system/                 <-- System files (SDDM, Wayland sessions) that require 'sudo'
+├── system/                 <-- System files (greetd, Wayland sessions, user shell templates)
+│   ├── bashrc              <-- Linked to ~/.bashrc (Bash config preserved alongside CachyOS default Zsh)
 │   ├── etc/
-│   │   └── sddm.conf.d/
-│   │       └── autologin.conf
+│   │   └── greetd/
+│   │       └── config.toml
 │   └── usr/
 │       └── local/
 │           └── share/
 │               └── wayland-sessions/
 │                   └── nirakase.desktop
-├── wallpapers/             <-- System wallpapers (linked to ~/.local/share/nirakase/wallpapers/)
+├── wallpapers/             <-- System wallpapers in ~/.local/share/nirakase/wallpapers/
 ├── install.sh              <-- Smart, idempotent, portable installer script with backups
+├── release.sh              <-- Automated semantic versioning, changelog, and Git tag manager
+├── VERSION                 <-- Current semantic version of the Nirakase environment
+├── CHANGELOG.md            <-- Release history and detailed changelog
+├── structure               <-- Directory and architecture map
 ├── README.md               <-- Documentation
 └── LICENSE                 <-- License

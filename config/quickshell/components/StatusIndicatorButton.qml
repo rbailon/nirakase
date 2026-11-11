@@ -13,7 +13,7 @@ Item {
     property color iconColor: Theme.textPrimary ? Theme.textPrimary : "#ffffff"
 
     // Dimensions and shape
-    property real buttonSize: 24
+    property real buttonSize: 22
     property real radiusSize: 4
     property bool available: true
     property bool active: true

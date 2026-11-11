@@ -29,13 +29,13 @@ echo -e "${PURPLE}==============================================================
 echo -e "${BLUE}[System]${NC} Loading installed packages..."
 
 # 1. Get list of installed official packages with their repositories
-official_list=$(pacman -Sl 2>/dev/null | awk '
+official_list=$(LC_ALL=C.UTF-8 pacman -Sl 2>/dev/null | awk '
     BEGIN {
         cyan = "\033[36m"
         reset = "\033[0m"
     }
     {
-        if (index($0, "[instal") > 0 || index($0, "installed") > 0) {
+        if (index($0, "[installed") > 0) {
             print cyan "[" $1 "]" reset " " $2
         }
     }

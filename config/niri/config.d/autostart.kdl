@@ -1,29 +1,7 @@
-// Add lines like this to spawn processes at startup.
-// Note that running niri as a session supports xdg-desktop-autostart,
-// which may be more convenient to use.
-// See the binds section below for more spawn examples.
+// --- Nirakase: Startup Processes (Autostart) ---
+// Note: Core daemons (Quickshell, awww, proton-pass-agent) are managed as systemd user services.
 
-// This line starts waybar, a commonly used bar for Wayland compositors.
-// spawn-sh-at-startup "uwsm app -- waybar -c ~/.local/share/omarchy/config/waybar/config.jsonc"
-
-// To run a shell command (with variables, pipes, etc.), use spawn-sh-at-startup:
-// spawn-sh-at-startup "qs -c ~/source/qs/MyAwesomeShell"
-
-
-
-// spawn-at-startup "~/.local/share/nirakase/niri/autostart.sh"
-
-// spawn-sh-at-startup "uwsm-app -- hypridle"
-// spawn-sh-at-startup "uwsm-app -- mako"
-// spawn-sh-at-startup "uwsm-app -- waybar"
-
-// spawn-sh-at-startup "uwsm-app -- swaybg -i ~/.config/omarchy/current/background -m fill"
-
-// spawn-sh-at-startup "uwsm-app -- /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
-spawn-sh-at-startup "uwsm-app -- walker --gapplication-service"
-
-spawn-sh-at-startup "uwsm-app -- systemctl --user import-environment $(env | cut -d'=' -f 1)"
 spawn-sh-at-startup "uwsm-app -- dbus-update-activation-environment --systemd --all"
 
 // Set default wallpaper on the first login of a new installation
-spawn-sh-at-startup "if [ -z \"$(ls -A \"$HOME/.cache/awww\" 2>/dev/null)\" ]; then (sleep 2 && uwsm-app -- ~/.local/share/nirakase/bin/nirakase-wallpaper ~/.local/share/nirakase/wallpapers/wallpaper.png); fi"
+spawn-sh-at-startup "if [ -z \"$(ls -A \"$HOME/.cache/awww\" 2>/dev/null)\" ]; then (sleep 2 && uwsm-app -- ~/.local/share/nirakase/local/bin/nirakase-wallpaper ~/.local/share/nirakase/wallpapers/wallpaper.png); fi"

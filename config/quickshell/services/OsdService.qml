@@ -20,110 +20,81 @@ Item {
     signal osdTriggered()
 
     // -------------------------------------------------------------
-    // Audio Output (Sink / Speakers & Headphones)
+    // Audio Output & Input via native Pipewire (AudioService)
     // -------------------------------------------------------------
-    Process {
-        id: sinkProcess
-        running: false
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: data => {
-                var parts = data.trim().split(":");
-                if (parts.length >= 3) {
-                    root.osdType = "volume";
-                    root.isMuted = (parts[0] === "YES");
-                    root.isHeadphones = (parts[1] === "YES");
-                    root.level = Math.max(0, Math.min(100, parseInt(parts[2]) || 0));
-                    root.label = root.isMuted ? "MUTE" : root.level + "%";
-
-                    if (root.isHeadphones) {
-                        root.icon = root.isMuted ? "󰟎" : "󰋋";
-                    } else {
-                        if (root.isMuted || root.level === 0) root.icon = "󰝟";
-                        else if (root.level <= 33) root.icon = "󰕿";
-                        else if (root.level <= 66) root.icon = "󰖀";
-                        else root.icon = "󰕾";
-                    }
-                    root.stateColor = root.isMuted ? Theme.danger : Theme.accent;
-                    root.osdTriggered();
-                }
-            }
-        }
+    function parseStepPct(step) {
+        if (step === undefined || step === "") return 5;
+        var n = parseInt(String(step).replace("%", ""));
+        return isNaN(n) ? 5 : n;
     }
 
-    function runSinkCommand(actionCmd) {
-        var query = "vol_raw=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null); " +
-                    "muted=$(echo \"$vol_raw\" | grep -q 'MUTED' && echo 'YES' || echo 'NO'); " +
-                    "vol_num=$(echo \"$vol_raw\" | awk '{print $2}'); " +
-                    "vol_pct=$(awk -v v=\"$vol_num\" 'BEGIN { printf \"%d\", (v * 100) }'); " +
-                    "sink_info=$(wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null); " +
-                    "is_hp=$(echo \"$sink_info\" | grep -iE 'headphone|headset|auricular' && echo 'YES' || echo 'NO'); " +
-                    "echo \"$muted:$is_hp:$vol_pct\"";
-        var full = actionCmd ? (actionCmd + "; " + query) : query;
-        sinkProcess.command = ["bash", "-c", full];
-        sinkProcess.running = true;
+    function showVolumeOsd(vol, muted) {
+        root.osdType = "volume";
+        root.isMuted = muted;
+        root.isHeadphones = AudioService.isHeadphones;
+        root.level = Math.max(0, Math.min(100, vol));
+        root.label = root.isMuted ? "MUTE" : root.level + "%";
+
+        if (root.isHeadphones) {
+            root.icon = root.isMuted ? "󰟎" : "󰋋";
+        } else {
+            if (root.isMuted || root.level === 0) root.icon = "󰝟";
+            else if (root.level <= 33) root.icon = "󰕿";
+            else if (root.level <= 66) root.icon = "󰖀";
+            else root.icon = "󰕾";
+        }
+        root.stateColor = root.isMuted ? Theme.danger : Theme.accent;
+        root.osdTriggered();
     }
 
     function volumeRaise(step) {
-        var s = (step !== undefined && step !== "") ? step : "5%";
-        runSinkCommand("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + s + "+ -l 1.0");
+        var delta = parseStepPct(step);
+        var nextVol = Math.max(0, Math.min(100, AudioService.volume + delta));
+        AudioService.setVolume(nextVol);
+        showVolumeOsd(nextVol, AudioService.isMuted);
     }
 
     function volumeLower(step) {
-        var s = (step !== undefined && step !== "") ? step : "5%";
-        runSinkCommand("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + s + "-");
+        var delta = parseStepPct(step);
+        var nextVol = Math.max(0, Math.min(100, AudioService.volume - delta));
+        AudioService.setVolume(nextVol);
+        showVolumeOsd(nextVol, AudioService.isMuted);
     }
 
     function volumeMuteToggle() {
-        runSinkCommand("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle");
+        var nextMuted = !AudioService.isMuted;
+        AudioService.toggleMute();
+        showVolumeOsd(AudioService.volume, nextMuted);
     }
 
-    // -------------------------------------------------------------
-    // Audio Input (Source / Microphone)
-    // -------------------------------------------------------------
-    Process {
-        id: sourceProcess
-        running: false
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: data => {
-                var parts = data.trim().split(":");
-                if (parts.length >= 2) {
-                    root.osdType = "mic";
-                    root.isMuted = (parts[0] === "YES");
-                    root.level = Math.max(0, Math.min(100, parseInt(parts[1]) || 0));
-                    root.label = root.isMuted ? "MUTE" : root.level + "%";
-                    root.icon = root.isMuted ? "󰍭" : "󰍬";
-                    root.stateColor = root.isMuted ? Theme.danger : Theme.accent;
-                    root.osdTriggered();
-                }
-            }
-        }
-    }
-
-    function runSourceCommand(actionCmd) {
-        var query = "vol_raw=$(wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null); " +
-                    "muted=$(echo \"$vol_raw\" | grep -q 'MUTED' && echo 'YES' || echo 'NO'); " +
-                    "vol_num=$(echo \"$vol_raw\" | awk '{print $2}'); " +
-                    "vol_pct=$(awk -v v=\"$vol_num\" 'BEGIN { printf \"%d\", (v * 100) }'); " +
-                    "echo \"$muted:$vol_pct\"";
-        var full = actionCmd ? (actionCmd + "; " + query) : query;
-        sourceProcess.command = ["bash", "-c", full];
-        sourceProcess.running = true;
+    function showMicOsd(vol, muted) {
+        root.osdType = "mic";
+        root.isMuted = muted;
+        root.level = Math.max(0, Math.min(100, vol));
+        root.label = root.isMuted ? "MUTE" : root.level + "%";
+        root.icon = (root.isMuted || root.level === 0) ? "󰍭" : "󰍬";
+        root.stateColor = root.isMuted ? Theme.danger : Theme.accent;
+        root.osdTriggered();
     }
 
     function micRaise(step) {
-        var s = (step !== undefined && step !== "") ? step : "5%";
-        runSourceCommand("wpctl set-volume @DEFAULT_AUDIO_SOURCE@ " + s + "+ -l 1.0");
+        var delta = parseStepPct(step);
+        var nextVol = Math.max(0, Math.min(100, AudioService.micVolume + delta));
+        AudioService.setMicVolume(nextVol);
+        showMicOsd(nextVol, AudioService.isMicMuted);
     }
 
     function micLower(step) {
-        var s = (step !== undefined && step !== "") ? step : "5%";
-        runSourceCommand("wpctl set-volume @DEFAULT_AUDIO_SOURCE@ " + s + "-");
+        var delta = parseStepPct(step);
+        var nextVol = Math.max(0, Math.min(100, AudioService.micVolume - delta));
+        AudioService.setMicVolume(nextVol);
+        showMicOsd(nextVol, AudioService.isMicMuted);
     }
 
     function micMuteToggle() {
-        runSourceCommand("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle");
+        var nextMuted = !AudioService.isMicMuted;
+        AudioService.toggleMicMute();
+        showMicOsd(AudioService.micVolume, nextMuted);
     }
 
     // -------------------------------------------------------------
@@ -219,7 +190,7 @@ Item {
         osdType = "capslock";
         icon = "󰬈";
         isMuted = !active;
-        stateText = active ? "MAYÚSCULAS: ON" : "MAYÚSCULAS: OFF";
+        stateText = active ? "CAPS LOCK: ON" : "CAPS LOCK: OFF";
         stateColor = active ? Theme.accent : Theme.textMuted;
         level = active ? 100 : 0;
         label = active ? "ON" : "OFF";
@@ -230,7 +201,7 @@ Item {
         osdType = "numlock";
         icon = "󰎠";
         isMuted = !active;
-        stateText = active ? "BLOQ NUM: ON" : "BLOQ NUM: OFF";
+        stateText = active ? "NUM LOCK: ON" : "NUM LOCK: OFF";
         stateColor = active ? Theme.accent : Theme.textMuted;
         level = active ? 100 : 0;
         label = active ? "ON" : "OFF";
@@ -283,24 +254,24 @@ Item {
     }
 
     // -------------------------------------------------------------
-    // Power Profiles (powerprofilesctl)
+    // Power Profiles via native UPower (PowerService)
     // -------------------------------------------------------------
     function applyPowerProfile(profile) {
         osdType = "powerprofile";
         isMuted = false;
         if (profile === "power-saver") {
             icon = "󰌪";
-            stateText = "AHORRO DE ENERGÍA";
+            stateText = "POWER SAVER";
             stateColor = Theme.success;
             level = 33;
         } else if (profile === "performance") {
             icon = "󰓅";
-            stateText = "ALTO RENDIMIENTO";
+            stateText = "HIGH PERFORMANCE";
             stateColor = Theme.danger;
             level = 100;
         } else {
             icon = "󰗑";
-            stateText = "EQUILIBRADO";
+            stateText = "BALANCED";
             stateColor = Theme.accent;
             level = 66;
         }
@@ -308,37 +279,13 @@ Item {
         osdTriggered();
     }
 
-    Process {
-        id: powerProfileProcess
-        running: false
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: data => {
-                var p = data.trim();
-                if (p === "power-saver" || p === "balanced" || p === "performance") {
-                    root.applyPowerProfile(p);
-                }
-            }
-        }
-    }
-
     function powerProfileCycle() {
-        var cycleCmd = "curr=$(powerprofilesctl get 2>/dev/null || echo 'balanced'); " +
-                       "case \"$curr\" in " +
-                       "    power-saver) next='balanced' ;; " +
-                       "    balanced) next='performance' ;; " +
-                       "    performance) next='power-saver' ;; " +
-                       "    *) next='balanced' ;; " +
-                       "esac; " +
-                       "powerprofilesctl set \"$next\" 2>/dev/null; " +
-                       "echo \"$next\"";
-        powerProfileProcess.command = ["bash", "-c", cycleCmd];
-        powerProfileProcess.running = true;
+        var nextProfile = PowerService.cycleProfile();
+        applyPowerProfile(nextProfile);
     }
 
     function powerProfileSet(profile) {
-        var setCmd = "powerprofilesctl set \"" + profile + "\" 2>/dev/null; echo \"" + profile + "\"";
-        powerProfileProcess.command = ["bash", "-c", setCmd];
-        powerProfileProcess.running = true;
+        PowerService.setProfile(profile);
+        applyPowerProfile(profile);
     }
 }

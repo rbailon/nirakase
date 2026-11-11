@@ -28,14 +28,14 @@ echo -e "${PURPLE}==============================================================
 
 # Get list of all packages from official repositories
 echo -e "${BLUE}[System]${NC} Loading official package database..."
-packages_list=$(pacman -Sl 2>/dev/null | awk '
+packages_list=$(LC_ALL=C.UTF-8 pacman -Sl 2>/dev/null | awk '
     BEGIN {
         cyan = "\033[36m"
         green = "\033[32m"
         reset = "\033[0m"
     }
     {
-        status = (index($0, "[instal") > 0 || index($0, "installed") > 0) ? " " green "󰄬 (Installed)" reset : ""
+        status = (index($0, "[installed") > 0) ? " " green "󰄬 (Installed)" reset : ""
         print cyan "[" $1 "]" reset " " $2 status
     }
 ')

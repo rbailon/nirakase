@@ -8,12 +8,14 @@ Item {
 
     // Icon and content properties
     property string icon: ""
+    property string prefixIcon: ""
+    property color prefixColor: Theme.accent ? Theme.accent : "#3B82F6"
     property string fontFamily: "JetBrainsMono Nerd Font Propo"
     property real iconSize: 15
     property color iconColor: Theme.textPrimary ? Theme.textPrimary : "#ffffff"
 
     // Dimensions and shape
-    property real buttonSize: 24
+    property real buttonSize: 22
     property real radiusSize: 4
     property bool available: true
     property bool active: true
@@ -28,11 +30,15 @@ Item {
 
     // Integration with layouts (ColumnLayout / RowLayout)
     visible: available
-    implicitWidth: available ? buttonSize : 0
+    implicitWidth: available ? (prefixIcon !== "" ? Math.max(buttonSize + 13, iconRow.implicitWidth + 8) : buttonSize) : 0
     implicitHeight: available ? buttonSize : 0
     Layout.preferredWidth: implicitWidth
     Layout.preferredHeight: implicitHeight
     Layout.alignment: Qt.AlignHCenter
+
+    Behavior on implicitWidth {
+        NumberAnimation { duration: 180; easing.type: Easing.InOutCubic }
+    }
 
     // Timer for tooltip delay (avoids triggering on fast cursor movements)
     Timer {
@@ -116,20 +122,42 @@ Item {
             }
         }
 
-        // Center icon
-        Text {
-            id: iconText
+        // Center icon(s)
+        Row {
+            id: iconRow
             anchors.centerIn: parent
-            font.family: root.fontFamily
-            font.pixelSize: root.iconSize
-            color: root.iconColor
-            text: root.icon
-            opacity: root.active ? 1.0 : 0.5
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+            spacing: 3
 
-            Behavior on opacity {
-                NumberAnimation { duration: 150 }
+            Text {
+                id: prefixIconText
+                visible: root.prefixIcon !== ""
+                anchors.verticalCenter: parent.verticalCenter
+                font.family: root.fontFamily
+                font.pixelSize: Math.max(11, root.iconSize - 3)
+                color: root.prefixColor
+                text: root.prefixIcon
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
+            }
+
+            Text {
+                id: iconText
+                anchors.verticalCenter: parent.verticalCenter
+                font.family: root.fontFamily
+                font.pixelSize: root.iconSize
+                color: root.iconColor
+                text: root.icon
+                opacity: root.active ? 1.0 : 0.5
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 150 }
+                }
             }
         }
 

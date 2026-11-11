@@ -84,7 +84,7 @@ get_installed_apps() {
                 browser)
                     if grep -qE "Categories=.*(WebBrowser|Network)" "$file" || \
                        grep -qE "MimeType=.*text/html" "$file" || \
-                       [[ "$filename" =~ (firefox|chrome|chromium|brave|opera|vivaldi|epiphany|librewolf|waterfox|edge) ]]; then
+                       [[ "$filename" =~ (firefox|zen|chrome|chromium|brave|opera|vivaldi|epiphany|librewolf|waterfox|edge) ]]; then
                         is_candidate=true
                     fi
                     ;;
@@ -97,7 +97,7 @@ get_installed_apps() {
                 file_manager)
                     if grep -qE "MimeType=.*inode/directory" "$file" || \
                        grep -qE "Categories=.*FileManager" "$file" || \
-                       [[ "$filename" =~ (thunar|nautilus|nemo|dolphin|pcmanfm|caja|doublecmd|krusader) ]]; then
+                       [[ "$filename" =~ (strata|yazi|thunar|nautilus|nemo|dolphin|pcmanfm|caja|doublecmd|krusader) ]]; then
                         is_candidate=true
                     fi
                     ;;

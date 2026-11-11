@@ -12,10 +12,17 @@
     "cornerRadius": 12
   },
   "bar": {
-    "longbar": true
+    "longbar": false
   },
   "clock": {
     "format24h": true,
     "showSeconds": false
+  },
+  "idle": {
+    "inhibited": false,
+    "dimTimeout": 150,
+    "lockTimeout": 300,
+    "dpmsTimeout": 330,
+    "suspendTimeout": 900
   }
 }

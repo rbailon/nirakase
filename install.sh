@@ -58,51 +58,65 @@ fi
 # 1. Install System Dependencies
 echo -e "${GREEN}[1/5] Synchronizing system dependencies...${NC}"
 
-echo -e "  ${BLUE}[System]${NC} Synchronizing package databases..."
-sudo pacman -Sy
+echo -e "  ${BLUE}[System]${NC} Synchronizing and upgrading package databases (preventing partial upgrades)..."
+sudo pacman -Syu --noconfirm
 
-# Separate official packages from AUR-only packages
+# Separate official/repo packages from AUR-only packages
 official_packages=(
-    niri uwsm git xdg-utils paru
-    xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk 
-    foot starship eza zoxide fzf waybar mako swayosd awww hypridle 
-    playerctl brightnessctl power-profiles-daemon polkit-gnome network-manager-applet 
+    niri xwayland-satellite uwsm git xdg-utils paru
+    xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk
+    foot tmux zsh cachyos-zsh-config starship eza zoxide fzf bat awww
+    playerctl brightnessctl power-profiles-daemon
+    networkmanager networkmanager-openconnect networkmanager-openvpn nm-connection-editor python-gobject python-evdev
     nwg-look qt5ct qt6ct kvantum ttf-jetbrains-mono-nerd jq
-    brave-origin-bin neovim imagemagick socat wl-clipboard hyprpicker
-    wiremix btop gum impala bluetui upower curl pamixer pacman-contrib sddm
+    zen-browser-bin brave-origin-bin strata proton-pass neovim imagemagick wl-clipboard hyprpicker grim slurp satty libnotify
+    wiremix btop impala bluetui upower curl pacman-contrib greetd greetd-tuigreet
+    gnome-keyring libsecret quickshell
 )
 
 aur_packages=(
     xdg-terminal-exec
-    walker
-    elephant
-    elephant-providerlist
-    elephant-desktopapplications
     yaru-icon-theme
+    proton-pass-cli-bin
 )
 
-# Special: Verify if swaylock or swaylock-effects is already installed, if not, install swaylock-effects (from AUR)
+# Special: Verify if swaylock or swaylock-effects is already installed, if not, install swaylock-effects
 if ! pacman -Qq swaylock-effects >/dev/null 2>&1 && ! pacman -Qq swaylock >/dev/null 2>&1; then
     aur_packages+=("swaylock-effects")
 fi
 
 official_to_install=()
+aur_to_install=()
+
 for pkg in "${official_packages[@]}"; do
     if ! pacman -Qq "$pkg" >/dev/null 2>&1; then
-        official_to_install+=("$pkg")
+        if pacman -Si "$pkg" >/dev/null 2>&1; then
+            official_to_install+=("$pkg")
+        elif [ "$pkg" = "proton-pass" ]; then
+            aur_to_install+=("proton-pass-bin")
+        else
+            aur_to_install+=("$pkg")
+        fi
     fi
 done
 
-aur_to_install=()
 for pkg in "${aur_packages[@]}"; do
+    # Skip proton-pass-cli-bin if pass-cli binary is already installed
+    if [ "$pkg" = "proton-pass-cli-bin" ] && (command -v pass-cli >/dev/null 2>&1 || [ -x "$HOME/.local/bin/pass-cli" ]); then
+        continue
+    fi
     if ! pacman -Qq "$pkg" >/dev/null 2>&1; then
-        aur_to_install+=("$pkg")
+        if pacman -Si "$pkg" >/dev/null 2>&1; then
+            official_to_install+=("$pkg")
+        else
+            aur_to_install+=("$pkg")
+        fi
     fi
 done
 
-# Install official packages
+# Install official/configured repository packages
 if [ ${#official_to_install[@]} -gt 0 ]; then
-    echo -e "  ${BLUE}[System]${NC} Installing missing official dependencies: ${official_to_install[*]}"
+    echo -e "  ${BLUE}[System]${NC} Installing missing repository dependencies: ${official_to_install[*]}"
     sudo pacman -S --needed --noconfirm "${official_to_install[@]}"
 fi
 
@@ -124,7 +138,14 @@ if [ ${#aur_to_install[@]} -gt 0 ]; then
     fi
 
     echo -e "  ${BLUE}[System]${NC} Installing missing AUR dependencies: ${aur_to_install[*]}"
-    paru -S --needed --noconfirm "${aur_to_install[@]}"
+    paru -S --needed --noconfirm "${aur_to_install[@]}" || true
+fi
+
+# Fallback: Ensure Proton Pass CLI (pass-cli) is installed via official SHA-256 verified installer if AUR build failed
+if ! command -v pass-cli >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/pass-cli" ]; then
+    echo -e "  ${BLUE}[System]${NC} Installing Proton Pass CLI (pass-cli) via official Proton verified installer..."
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSL https://proton.me/download/pass-cli/install.sh | bash || echo -e "  ${YELLOW}[!]${NC} Could not install pass-cli automatically."
 fi
 
 if [ ${#official_to_install[@]} -eq 0 ] && [ ${#aur_to_install[@]} -eq 0 ]; then
@@ -190,6 +211,17 @@ link_files_recursively() {
 
 # 2. Deploy User Configs (Folder-level symlinking)
 echo -e "\n${GREEN}[2/5] Applying user configurations (Dotfiles)...${NC}"
+
+# Clean up obsolete config symlinks from previous versions
+obsolete_configs=("waybar" "mako" "swayosd" "walker" "elephant" "hypr" "hypridle" "bash")
+for obs in "${obsolete_configs[@]}"; do
+    obs_path="$HOME/.config/$obs"
+    if [ -L "$obs_path" ]; then
+        rm -f "$obs_path"
+        echo -e "  ${YELLOW}[-]${NC} Removed obsolete config symlink: $obs_path"
+    fi
+done
+
 for dir in "$REPO_DIR/config"/*; do
     [ -d "$dir" ] || continue
     app_name=$(basename "$dir")
@@ -214,26 +246,43 @@ for special_dir in "gtk-3.0" "gtk-4.0" "systemd" "systemd/user"; do
     mkdir -p "$target"
 done
 
+# Clean up broken symlinks in ~/.config/systemd/user
+if [ -d "$HOME/.config/systemd/user" ]; then
+    find "$HOME/.config/systemd/user" -xtype l -delete 2>/dev/null || true
+fi
+
 link_files_recursively "$REPO_DIR/config/gtk-3.0" "$HOME/.config/gtk-3.0"
 link_files_recursively "$REPO_DIR/config/gtk-4.0" "$HOME/.config/gtk-4.0"
 link_files_recursively "$REPO_DIR/config/systemd" "$HOME/.config/systemd"
 
-# Deploy individual system/user dotfiles
+# Deploy individual system/user dotfiles (Bash configuration preserved alongside CachyOS Zsh)
 safe_symlink "$REPO_DIR/system/bashrc" "$HOME/.bashrc"
+
+# Ensure CachyOS Zsh configuration is present and Zsh is the default shell
+if [ ! -f "$HOME/.zshrc" ] && [ -f "/etc/skel/.zshrc" ]; then
+    cp "/etc/skel/.zshrc" "$HOME/.zshrc"
+    echo -e "  ${GREEN}[✔]${NC} Initialized ~/.zshrc from CachyOS skeleton (/etc/skel/.zshrc)"
+fi
+
+if command -v zsh >/dev/null 2>&1; then
+    current_shell=$(getent passwd "$USER" | cut -d: -f7)
+    if [ "$current_shell" != "/bin/zsh" ] && [ "$current_shell" != "/usr/bin/zsh" ]; then
+        sudo usermod -s /bin/zsh "$USER"
+        echo -e "  ${GREEN}[✔]${NC} Configured Zsh (/bin/zsh) as the default user shell"
+    fi
+fi
 
 
 # 3. Deploy Local Resources
 echo -e "\n${GREEN}[3/5] Applying local resources (Nirakase Local)...${NC}"
 mkdir -p "$HOME/.local/share/nirakase"
 
-# Clean up legacy icons symlink if it exists
-if [ -L "$HOME/.local/share/nirakase/icons" ]; then
-    rm -f "$HOME/.local/share/nirakase/icons"
-fi
-
-# Link complete folders for scripts and wallpapers
-safe_symlink "$REPO_DIR/local/bin" "$HOME/.local/share/nirakase/bin"
-safe_symlink "$REPO_DIR/wallpapers" "$HOME/.local/share/nirakase/wallpapers"
+# Clean up legacy symlinks if they exist
+for legacy_link in "$HOME/.local/share/nirakase/icons" "$HOME/.local/share/nirakase/bin"; do
+    if [ -L "$legacy_link" ]; then
+        rm -f "$legacy_link"
+    fi
+done
 
 # Create default wallpaper.png symlink pointing to 1378545.jpg if not present
 if [ ! -f "$HOME/.local/share/nirakase/wallpapers/wallpaper.png" ] && [ ! -L "$HOME/.local/share/nirakase/wallpapers/wallpaper.png" ]; then
@@ -242,7 +291,7 @@ if [ ! -f "$HOME/.local/share/nirakase/wallpapers/wallpaper.png" ] && [ ! -L "$H
 fi
 
 # Ensure all scripts are executable
-chmod +x "$REPO_DIR"/local/bin/*
+chmod +x "$REPO_DIR"/local/bin/* 2>/dev/null || true
 
 # 4. Install and Port WebApps (.desktop) and Icons
 echo -e "\n${GREEN}[4/5] Installing and porting WebApp shortcuts...${NC}"
@@ -275,20 +324,59 @@ for desktop_file in "$REPO_DIR/local/applications"/*.desktop; do
     echo -e "  ${GREEN}[✔]${NC} WebApp installed and ported: $filename"
 done
 
-# Set default browser to Chromium for first installation
+# Set default browser to Zen Browser
 if command -v xdg-settings >/dev/null 2>&1; then
-    xdg-settings set default-web-browser chromium.desktop 2>/dev/null || true
-    echo -e "  ${GREEN}[✔]${NC} Configured Chromium as the default web browser"
+    xdg-settings set default-web-browser zen.desktop 2>/dev/null || true
+    echo -e "  ${GREEN}[✔]${NC} Configured Zen Browser as the default web browser"
 fi
 
-# Set GTK icon theme to Yaru-magenta-dark
+# Set default file manager to Strata if installed
+if command -v xdg-mime >/dev/null 2>&1 && pacman -Qq strata >/dev/null 2>&1; then
+    strata_desktop=$(pacman -Ql strata 2>/dev/null | awk '/\/usr\/share\/applications\/.*\.desktop$/ {print $2; exit}')
+    if [ -n "$strata_desktop" ]; then
+        xdg-mime default "$(basename "$strata_desktop")" inode/directory 2>/dev/null || true
+        echo -e "  ${GREEN}[✔]${NC} Configured Strata as the default file manager"
+    fi
+fi
+
+# Set GTK icon theme and font settings
 if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.gnome.desktop.interface icon-theme "Yaru-magenta-dark" 2>/dev/null || true
-    echo -e "  ${GREEN}[✔]${NC} Configured Yaru-magenta-dark as the default GTK icon theme"
+    gsettings set org.gnome.desktop.interface font-name "JetBrainsMono Nerd Font 10" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface monospace-font-name "JetBrainsMono Nerd Font 10" 2>/dev/null || true
+    echo -e "  ${GREEN}[✔]${NC} Configured Yaru-magenta-dark GTK theme & JetBrains Mono Nerd Font"
 fi
 
-# 5. Install System Files (Wayland Session & SDDM Auto-login)
+# Refresh font cache
+if command -v fc-cache >/dev/null 2>&1; then
+    fc-cache -f >/dev/null 2>&1 || true
+    echo -e "  ${GREEN}[✔]${NC} Refreshed system font cache (fc-cache)"
+fi
+
+# 5. Install System Files (Wayland Session, Locale & greetd Auto-login)
 echo -e "\n${GREEN}[5/5] Installing system configurations (SUDO)...${NC}"
+
+echo -e "  ${BLUE}[System]${NC} Configuring system locales (en_US.UTF-8 + es_ES.UTF-8) and Spanish keyboard layout..."
+sudo sed -i 's/^#\s*\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+sudo sed -i 's/^#\s*\(es_ES\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+sudo locale-gen >/dev/null
+
+sudo tee /etc/locale.conf > /dev/null << 'EOF'
+LANG=en_US.UTF-8
+LC_TIME=es_ES.UTF-8
+LC_NUMERIC=es_ES.UTF-8
+LC_MONETARY=es_ES.UTF-8
+LC_PAPER=es_ES.UTF-8
+LC_MEASUREMENT=es_ES.UTF-8
+EOF
+echo -e "  ${GREEN}[✔]${NC} Configured /etc/locale.conf (LANG=en_US.UTF-8 with es_ES.UTF-8 regional formats)"
+
+sudo tee /etc/vconsole.conf > /dev/null << 'EOF'
+KEYMAP=es
+XKBLAYOUT=es
+EOF
+echo -e "  ${GREEN}[✔]${NC} Configured /etc/vconsole.conf (KEYMAP=es, XKBLAYOUT=es)"
+
 sudo mkdir -p /usr/local/share/wayland-sessions/
 sudo cp "$REPO_DIR/system/usr/local/share/wayland-sessions/nirakase.desktop" /usr/local/share/wayland-sessions/
 
@@ -299,8 +387,8 @@ if [ ! -f "$HOME/.config/xdg-terminals.list" ]; then
     echo -e "  ${GREEN}[✔]${NC} Configured Foot as the default terminal"
 fi
 
-echo -e "\nConfiguring SDDM Display Manager and Autologin for user $USER..."
-known_dms=("gdm" "lightdm" "ly" "greetd" "lxdm" "slim" "nodm" "lemurs" "cosmic-greeter")
+echo -e "\nConfiguring greetd + tuigreet Display Manager and Autologin for user $USER..."
+known_dms=("sddm" "gdm" "lightdm" "ly" "lxdm" "slim" "nodm" "lemurs" "cosmic-greeter")
 for dm in "${known_dms[@]}"; do
     if systemctl is-enabled "$dm.service" >/dev/null 2>&1; then
         echo -e "  ${YELLOW}[!]${NC} Disabling active display manager: $dm"
@@ -308,15 +396,22 @@ for dm in "${known_dms[@]}"; do
     fi
 done
 
-if ! systemctl is-enabled sddm.service >/dev/null 2>&1; then
-    echo -e "  ${BLUE}[System]${NC} Enabling sddm.service..."
-    sudo systemctl enable sddm.service 2>/dev/null || true
-else
-    echo -e "  ${GREEN}[✔]${NC} sddm.service is already enabled"
+# Remove legacy SDDM autologin configuration if present
+if [ -f "/etc/sddm.conf.d/autologin.conf" ]; then
+    echo -e "  ${BLUE}[System]${NC} Removing legacy /etc/sddm.conf.d/autologin.conf..."
+    sudo rm -f /etc/sddm.conf.d/autologin.conf
 fi
 
-sudo mkdir -p /etc/sddm.conf.d/
-echo -e "[Autologin]\nUser=$USER\nSession=nirakase" | sudo tee /etc/sddm.conf.d/autologin.conf > /dev/null
+sudo mkdir -p /etc/greetd
+sed "s/__USER__/$USER/g" "$REPO_DIR/system/etc/greetd/config.toml" | sudo tee /etc/greetd/config.toml > /dev/null
+echo -e "  ${GREEN}[✔]${NC} Deployed /etc/greetd/config.toml (initial_session autologin + tuigreet)"
+
+if ! systemctl is-enabled greetd.service >/dev/null 2>&1; then
+    echo -e "  ${BLUE}[System]${NC} Enabling greetd.service..."
+    sudo systemctl enable greetd.service 2>/dev/null || true
+else
+    echo -e "  ${GREEN}[✔]${NC} greetd.service is already enabled"
+fi
 
 # 5.5. Boot Optimization: Automatic Plymouth Removal & Silent Boot
 echo -e "\n${GREEN}[5.5/5] Optimizing system boot (Plymouth removal & silent boot)...${NC}"
@@ -401,11 +496,15 @@ fi
 echo -e "\nEnabling Systemd user daemons and services..."
 systemctl --user daemon-reload
 
-for service_file in "$REPO_DIR/config/systemd/user"/*.service; do
+for service_file in "$REPO_DIR/config/systemd/user"/*.service "$REPO_DIR/config/systemd/user"/*.path; do
     [ -f "$service_file" ] || continue
     service_name=$(basename "$service_file")
+    if [[ "$service_name" == proton-pass-agent.* ]] && ! command -v pass-cli >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/pass-cli" ]; then
+        echo -e "  ${YELLOW}[!]${NC} Skipping $service_name (pass-cli not found)"
+        continue
+    fi
     systemctl --user enable "$service_name"
-    echo -e "  ${GREEN}[✔]${NC} Service enabled: $service_name"
+    echo -e "  ${GREEN}[✔]${NC} Unit enabled: $service_name"
 done
 
 echo -e "\n${PURPLE}========================================================================${NC}"

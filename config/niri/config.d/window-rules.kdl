@@ -4,7 +4,6 @@
 // 1. NIRAKASE ECOSYSTEM RULES (Terminal Scripts)
 // ---------------------------------------------------------
 window-rule {
-    // match app-id=r#"^(org\.nirakase\.)"#
     match app-id=r#"^org\.nirakase\..*"#
 
     open-floating true
@@ -13,27 +12,13 @@ window-rule {
 }
 
 // ---------------------------------------------------------
-// 1.5. FLOATING WALLPAPER SELECTOR (Quickshell QML)
-// ---------------------------------------------------------
-window-rule {
-    match app-id="^nirakase-wallpaper-picker$"
-    match title="^Nirakase Wallpaper Picker$"
-
-    open-floating true
-    default-column-width { proportion 0.8; }
-    default-window-height { proportion 0.55; }
-}
-
-// ---------------------------------------------------------
 // 2. DEFAULT FLOATING WINDOWS
 // ---------------------------------------------------------
 window-rule {
     match app-id="org.gnome.Calculator"
-    match app-id="pavucontrol"          // Advanced volume control
-    match app-id="nm-connection-editor" // Network editor
-    match app-id="blueman-manager"      // Bluetooth manager
-    match app-id="blueman-manager"      // Bluetooth manager
-    match app-id="satty"                // Satty
+    match app-id="nm-connection-editor"       // Network editor
+    match app-id="satty"                      // Screenshot annotation tool
+    match app-id="nm-openconnect-auth-dialog" // Authenticator from NetworkManager OpenConnect
     
     // Dialog windows requesting confirmation or saving files
     match title="^Open File$"
@@ -42,7 +27,6 @@ window-rule {
 
     match app-id="xdg-desktop-portal-gtk"
     match app-id="xdg-desktop-portal-gnome" // "Save File" windows
-    match app-id="polkit-gnome-authentication-agent-1" // Password requests
     
     open-floating true
     open-on-workspace "current"
@@ -62,7 +46,7 @@ window-rule {
 // ---------------------------------------------------------
 // Prevents sensitive applications from being visible during screen sharing
 window-rule {
-    match app-id=r#"(bitwarden|1Password|KeePassXC)"#
+    match app-id=r#"(?i)(bitwarden|1password|keepassxc|proton[- ]?pass)"#
     match app-id=r#"^org\.gnome\.World\.Secrets$"#
     
     block-out-from "screen-capture"
@@ -79,37 +63,16 @@ window-rule {
 
 // Inactive windows
 window-rule {
-  match is-active=false
-  opacity 0.95
+    match is-active=false
+    opacity 0.95
 }
 
 
 // ---------------------------------------------------------
 // 6. OTHERS
 // ---------------------------------------------------------
-// Foot Opacity
+// Open the Firefox / Zen Browser picture-in-picture player as floating by default.
 window-rule {
-    match app-id="foot" is-active=false
-
-    opacity 0.95
-}
-
-// Work around WezTerm's initial configure bug
-// by setting an empty default-column-width.
-window-rule {
-    // This regular expression is intentionally made as specific as possible,
-    // since this is the default config, and we want no false positives.
-    // You can get away with just app-id="wezterm" if you want.
-    match app-id=r#"^org\.wezfurlong\.wezterm$"#
-    default-column-width {}
-}
-
-// Open the Firefox picture-in-picture player as floating by default.
-window-rule {
-    // This app-id regular expression will work for both:
-    // - host Firefox (app-id is "firefox")
-    // - Flatpak Firefox (app-id is "org.mozilla.firefox")
-    match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    match app-id=r#"(firefox|zen)$"# title="^Picture-in-Picture$"
     open-floating true
 }
-

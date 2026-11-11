@@ -1,9 +1,24 @@
 #!/usr/bin/env python3
+import os
 import sys
 import time
 import glob
+import ctypes
 import select
 import signal
+
+# Close any inherited file descriptors (e.g. D-Bus sockets) from parent process
+try:
+    os.closerange(3, 4096)
+except Exception:
+    pass
+
+# Ask kernel to send SIGTERM if parent process dies
+try:
+    libc = ctypes.CDLL("libc.so.6")
+    libc.prctl(1, signal.SIGTERM, 0, 0, 0)
+except Exception:
+    pass
 
 try:
     import evdev
@@ -85,8 +100,12 @@ def main():
                                 state = "ON" if get_led_state("/sys/class/leds/*::numlock/brightness") else "OFF"
                                 sys.stdout.write(f"NUMLOCK:{state}\n")
                                 sys.stdout.flush()
+                except (BrokenPipeError, IOError):
+                    sys.exit(0)
                 except Exception:
                     dev_map.pop(fd, None)
+        except (BrokenPipeError, KeyboardInterrupt, SystemExit):
+            sys.exit(0)
         except Exception:
             pass
 

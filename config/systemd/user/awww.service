@@ -1,13 +1,11 @@
 [Unit]
-Description=Awww Daemon - Gestor de fondos animados para Nirakase
+Description=Awww Daemon - Animated Wallpaper Manager for Nirakase
 PartOf=graphical-session.target
 After=graphical-session.target
 ConditionEnvironment=WAYLAND_DISPLAY
 
 [Service]
 ExecStart=/usr/bin/awww-daemon
-# swww se cierra de forma limpia con este comando
-ExecStop=/usr/bin/awww kill
 Restart=on-failure
 RestartSec=2
 

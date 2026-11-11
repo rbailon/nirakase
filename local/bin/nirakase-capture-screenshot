@@ -15,9 +15,13 @@ if [ ! -d "$SCREENSHOT_DIR" ]; then
     mkdir -p "$SCREENSHOT_DIR"
 fi
 
-# Define unique timestamped path
+# Define unique timestamped path (used only if the user chooses to save to disk)
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 SCREENSHOT_PATH="${SCREENSHOT_DIR}/Screenshot_${TIMESTAMP}.png"
+
+# Create temporary file in RAM (tmpfs in XDG_RUNTIME_DIR, mode 0600) and ensure cleanup on exit
+TMP_SHOT=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/nirakase-shot-XXXXXX.png")
+trap 'rm -f "$TMP_SHOT"' EXIT INT TERM
 
 # Check dependencies
 if ! command -v grim >/dev/null 2>&1; then
@@ -28,20 +32,25 @@ if ! command -v grim >/dev/null 2>&1; then
 fi
 
 MODE="${1:-area}"
+NEEDS_WAIT=0
 
-# Give the launching window or terminal a brief moment to unmap/disappear
-sleep 0.2
+# Optional delay only when requested (e.g. when launched from a closing TUI menu)
+if [[ "${2:-}" == "--delay" ]]; then
+    sleep 0.2
+fi
 
 case "$MODE" in
     window)
         # Capture the focused window. Fallback to slurp interactive selection if Niri IPC is unavailable.
         if command -v niri >/dev/null 2>&1 && niri msg focused-window >/dev/null 2>&1; then
-            if ! niri msg action screenshot-window --path "$SCREENSHOT_PATH"; then
+            rm -f "$TMP_SHOT"
+            if ! niri msg action screenshot-window --path "$TMP_SHOT"; then
                 exit 1
             fi
+            NEEDS_WAIT=1
         else
             if command -v slurp >/dev/null 2>&1; then
-                if ! grim -g "$(slurp)" "$SCREENSHOT_PATH"; then
+                if ! grim -g "$(slurp)" "$TMP_SHOT"; then
                     exit 0
                 fi
             else
@@ -53,11 +62,13 @@ case "$MODE" in
     monitor)
         # Capture the focused screen/monitor. Fallback to standard grim full-screen capture if Niri IPC is unavailable.
         if command -v niri >/dev/null 2>&1 && niri msg focused-output >/dev/null 2>&1; then
-            if ! niri msg action screenshot-screen --path "$SCREENSHOT_PATH"; then
+            rm -f "$TMP_SHOT"
+            if ! niri msg action screenshot-screen --path "$TMP_SHOT"; then
                 exit 1
             fi
+            NEEDS_WAIT=1
         else
-            if ! grim "$SCREENSHOT_PATH"; then
+            if ! grim "$TMP_SHOT"; then
                 exit 1
             fi
         fi
@@ -72,46 +83,47 @@ case "$MODE" in
             exit 1
         fi
 
-        # Run slurp to select region and grim to grab the image
-        if ! grim -g "$(slurp)" "$SCREENSHOT_PATH"; then
+        # Run slurp to select region and grim to grab the image synchronously into RAM
+        if ! grim -g "$(slurp)" "$TMP_SHOT"; then
             # If slurp is cancelled (e.g. via ESC), exit quietly
             exit 0
         fi
         ;;
 esac
 
-# Wait for the screenshot file to be fully written to disk by the compositor (up to 5 seconds)
-TIMEOUT=50
-while [ ! -s "$SCREENSHOT_PATH" ]; do
-    sleep 0.1
-    TIMEOUT=$((TIMEOUT - 1))
-    if [ "$TIMEOUT" -le 0 ]; then
-        if command -v notify-send >/dev/null 2>&1; then
-            notify-send -u critical "Nirakase Screenshot" "Error: The screenshot save operation timed out."
+# Wait for asynchronous Niri compositor screenshot write if needed (up to 5 seconds, 20ms intervals)
+if [ "$NEEDS_WAIT" -eq 1 ]; then
+    TIMEOUT=250
+    while [ ! -s "$TMP_SHOT" ]; do
+        sleep 0.02
+        TIMEOUT=$((TIMEOUT - 1))
+        if [ "$TIMEOUT" -le 0 ]; then
+            if command -v notify-send >/dev/null 2>&1; then
+                notify-send -u critical "Nirakase Screenshot" "Error: The screenshot save operation timed out."
+            fi
+            exit 1
         fi
-        exit 1
-    fi
-done
+    done
+fi
 
 # Ensure the image was successfully captured and written
-if [ ! -f "$SCREENSHOT_PATH" ]; then
+if [ ! -s "$TMP_SHOT" ]; then
     exit 1
 fi
 
-# Copy the captured screenshot to clipboard immediately if possible
-if command -v wl-copy >/dev/null 2>&1; then
-    wl-copy < "$SCREENSHOT_PATH"
-fi
-
-# Launch Satty editor if available for annotations
+# Launch Satty editor if available for annotations (reads from RAM; only saves/copies what the user confirms)
 if command -v satty >/dev/null 2>&1; then
-    satty --filename "$SCREENSHOT_PATH" \
+    satty --filename "$TMP_SHOT" \
           --output-filename "$SCREENSHOT_PATH" \
           --early-exit \
           --copy-command 'wl-copy'
 else
-    # Simple notify feedback if Satty is not installed
+    # Fallback when Satty is not installed: persist to disk and copy to clipboard
+    cp "$TMP_SHOT" "$SCREENSHOT_PATH"
+    if command -v wl-copy >/dev/null 2>&1; then
+        wl-copy < "$SCREENSHOT_PATH"
+    fi
     if command -v notify-send >/dev/null 2>&1; then
-        notify-send "Pantallazo Guardado" "Captura guardada en Pictures/Screenshots" -i camera -t 3000
+        notify-send "Screenshot Saved" "Screenshot saved in Pictures/Screenshots" -i camera -t 3000
     fi
 fi

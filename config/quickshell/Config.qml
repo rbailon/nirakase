@@ -21,6 +21,13 @@ Item {
         "clock": {
             "format24h": true,
             "showSeconds": false
+        },
+        "idle": {
+            "inhibited": false,
+            "dimTimeout": 150,
+            "lockTimeout": 300,
+            "dpmsTimeout": 330,
+            "suspendTimeout": 900
         }
     })
 
@@ -30,14 +37,22 @@ Item {
     // Cache to prevent redundant JSON parsing if file content hasn't changed
     property string lastRawText: ""
 
+    // Flat control
+    property bool isSaving: false
+
     FileView {
         id: fileView
         path: root.configPath
         blockLoading: true
+        blockWrites: true
+        atomicWrites: true
         watchChanges: true
 
         // onLoaded handles the initial read; onFileChanged handles external modifications
-        onFileChanged: root.loadConfig()
+        onFileChanged: {
+          if (root.isSaving) return;
+          root.loadConfig()
+        }
         onLoaded: root.loadConfig()
     }
 
@@ -59,8 +74,10 @@ Item {
     function loadConfig() {
         var rawText = fileView.text();
 
+        if (rawText && root.lastRawText && rawText.trim() === root.lastRawText.trim()) return;
+
         // Skip parsing if content is unchanged
-        if (rawText === root.lastRawText && rawText !== "") return;
+        // if (rawText === root.lastRawText && rawText !== "") return;
 
         if (!rawText || rawText.trim() === "") {
             root.values = Object.assign({}, root.defaults);
@@ -75,9 +92,11 @@ Item {
         }
     }
 
+
     readonly property var theme: values.theme
     readonly property var bar: values.bar
     readonly property var clock: values.clock
+    readonly property var idle: values.idle
 
     function set(keyPath, newValue) {
         var current = JSON.parse(JSON.stringify(root.values));
@@ -97,6 +116,10 @@ Item {
     function save() {
         var formatted = JSON.stringify(root.values, null, 2);
         root.lastRawText = formatted;
+        root.isSaving = true;
         fileView.setText(formatted);
+        Qt.callLater(() => {
+            root.isSaving = false;
+        })
     }
 }
