@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - modified shortcuts to move windows in and out of workspaces
 
+### Fixed
+- shortcut conflict with Neovim
+
 ## [2.0.2] - 2026-11-12
 
 ### Fixed
