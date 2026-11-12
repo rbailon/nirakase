@@ -76,7 +76,7 @@ official_packages=(
 
 aur_packages=(
     xdg-terminal-exec
-    yaru-icon-theme
+    colloid-icon-theme
     proton-pass-cli-bin
 )
 
@@ -341,10 +341,10 @@ fi
 
 # Set GTK icon theme and font settings
 if command -v gsettings >/dev/null 2>&1; then
-    gsettings set org.gnome.desktop.interface icon-theme "Yaru-magenta-dark" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface icon-theme "Colloid" 2>/dev/null || true
     gsettings set org.gnome.desktop.interface font-name "JetBrainsMono Nerd Font 10" 2>/dev/null || true
     gsettings set org.gnome.desktop.interface monospace-font-name "JetBrainsMono Nerd Font 10" 2>/dev/null || true
-    echo -e "  ${GREEN}[✔]${NC} Configured Yaru-magenta-dark GTK theme & JetBrains Mono Nerd Font"
+    echo -e "  ${GREEN}[✔]${NC} Configured Colloid GTK theme & JetBrains Mono Nerd Font"
 fi
 
 # Refresh font cache
