@@ -45,14 +45,14 @@ binds {
     // 2. Move Window (Grab the current window and move it)
     Mod+Ctrl+H     { move-column-left; }  // Move the entire column to the left
     Mod+Ctrl+L     { move-column-right; } // Move the entire column to the right
-    Mod+Ctrl+K     { move-window-up; }    // Move window up within its column
-    Mod+Ctrl+J     { move-window-down; }  // Move window down within its column
+    Mod+Ctrl+K     { move-window-up-or-to-workspace-up; }    // Move window up within its column
+    Mod+Ctrl+J     { move-window-down-or-to-workspace-down; }  // Move window down within its column
 
     // Arrow key alternatives to move windows
     Mod+Ctrl+Left  { move-column-left; }
     Mod+Ctrl+Right { move-column-right; }
-    Mod+Ctrl+Up    { move-window-up; }
-    Mod+Ctrl+Down  { move-window-down; }
+    Mod+Ctrl+Up    { move-window-up-or-to-workspace-up; }
+    Mod+Ctrl+Down  { move-window-down-or-to-workspace-down; }
 
     // 3. Quick Monitor Navigation
     Mod+Ctrl+M { move-window-to-monitor-right; }
@@ -216,8 +216,8 @@ binds {
     // Mod+Shift+Ctrl+Left  { move-workspace-to-monitor-left; }
     // ...
 
-    Mod+Ctrl+Page_Down { move-column-to-workspace-down; }
-    Mod+Ctrl+Page_Up   { move-column-to-workspace-up; }
+    // Mod+Ctrl+Page_Down { move-column-to-workspace-down; }
+    // Mod+Ctrl+Page_Up   { move-column-to-workspace-up; }
     Mod+Ctrl+U         { move-column-to-workspace-down; }
     Mod+Ctrl+I         { move-column-to-workspace-up; }
 
