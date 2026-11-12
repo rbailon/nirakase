@@ -169,7 +169,7 @@ else
     COMMIT_RANGE="HEAD"
 fi
 
-while IFS= read -r line; do
+while IFS= read -r line || [ -n "$line" ]; do
     [ -z "$line" ] && continue
     # Skip release commits
     if [[ "$line" =~ ^chore\(release\): ]]; then
@@ -189,7 +189,7 @@ while IFS= read -r line; do
         clean_msg=$(echo "$line" | sed -E 's/^[a-z]+(\([^)]+\))?!?:[[:space:]]*//')
         CHANGED_ITEMS+="- ${clean_msg}"$'\n'
     fi
-done < <(git log "$COMMIT_RANGE" --pretty=format:"%s" 2>/dev/null || true)
+done < <(git log "$COMMIT_RANGE" --format="%s" 2>/dev/null || true)
 
 # Fallback if no commits since last tag and no custom message was provided
 if [ -z "$ADDED_ITEMS" ] && [ -z "$FIXED_ITEMS" ] && [ -z "$CHANGED_ITEMS" ] && [ -z "$REMOVED_ITEMS" ]; then
