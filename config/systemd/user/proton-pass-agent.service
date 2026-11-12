@@ -1,19 +1,24 @@
 [Unit]
 Description=Proton Pass CLI SSH Agent
 Documentation=https://protonpass.github.io/pass-cli/
-After=network.target graphical-session.target dbus.socket
-StartLimitIntervalSec=60
-StartLimitBurst=5
+# On-demand unit (intentionally no [Install] section).
+# It is started by the Nirakase pass-cli wrapper (local/bin/pass-cli) right after a
+# successful 'pass-cli login', and stopped before 'pass-cli login' / 'pass-cli logout'.
+# pass-cli uses its default key provider (Linux kernel keyring): the local encryption
+# key lives only in RAM and is wiped on every reboot, so one login per boot is required.
+StartLimitIntervalSec=120
+StartLimitBurst=3
 
 [Service]
 Type=simple
+# Real binary only (never the Nirakase wrapper in $NIRAKASE_PATH/local/bin)
 Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
-ExecCondition=/bin/sh -c 'command -v pass-cli >/dev/null 2>&1 && pass-cli info >/dev/null 2>&1'
+# Enforce the default (kernel keyring) key provider
+UnsetEnvironment=PROTON_PASS_KEY_PROVIDER
 ExecStartPre=-/usr/bin/rm -f %t/proton-pass-agent.socket
 ExecStart=/usr/bin/env pass-cli ssh-agent start --socket-path %t/proton-pass-agent.socket
 ExecStopPost=-/usr/bin/rm -f %t/proton-pass-agent.socket
-Restart=on-failure
-RestartSec=5s
-
-[Install]
-WantedBy=default.target
+# Only restart on crashes/signals; an unauthenticated session exits with an error code
+# and must NOT loop (looping pass-cli calls can wipe a session while logging in).
+Restart=on-abnormal
+RestartSec=10s

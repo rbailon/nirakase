@@ -496,15 +496,16 @@ fi
 echo -e "\nEnabling Systemd user daemons and services..."
 systemctl --user daemon-reload
 
-for service_file in "$REPO_DIR/config/systemd/user"/*.service "$REPO_DIR/config/systemd/user"/*.path; do
+for service_file in "$REPO_DIR/config/systemd/user"/*.service; do
     [ -f "$service_file" ] || continue
     service_name=$(basename "$service_file")
-    if [[ "$service_name" == proton-pass-agent.* ]] && ! command -v pass-cli >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/pass-cli" ]; then
-        echo -e "  ${YELLOW}[!]${NC} Skipping $service_name (pass-cli not found)"
+    # On-demand unit: started by the pass-cli wrapper (local/bin/pass-cli) after 'pass-cli login'
+    if [ "$service_name" = "proton-pass-agent.service" ]; then
+        echo -e "  ${GREEN}[✔]${NC} On-demand unit: $service_name (starts after 'pass-cli login')"
         continue
     fi
     systemctl --user enable "$service_name"
-    echo -e "  ${GREEN}[✔]${NC} Unit enabled: $service_name"
+    echo -e "  ${GREEN}[✔]${NC} Service enabled: $service_name"
 done
 
 echo -e "\n${PURPLE}========================================================================${NC}"
