@@ -55,6 +55,35 @@ ShellRoot {
         Qt.quit();
     }
 
+    property bool wasActivated: false
+
+    Connections {
+        target: Qt.application
+        function onStateChanged() {
+            if (Qt.application.state === Qt.ApplicationActive) {
+                root.wasActivated = true;
+            } else if (root.wasActivated && Qt.application.state === Qt.ApplicationInactive) {
+                root.closeSelector();
+            }
+        }
+    }
+
+    function handleKey(event) {
+        if (event.key === Qt.Key_Escape) {
+            root.closeSelector();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Left && imageModel.count > 0) {
+            root.selectedIndex = (root.selectedIndex - 1 + imageModel.count) % imageModel.count;
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Right && imageModel.count > 0) {
+            root.selectedIndex = (root.selectedIndex + 1) % imageModel.count;
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+            root.applySelection();
+            event.accepted = true;
+        }
+    }
+
     function closeSelector() {
         Qt.quit();
     }
@@ -95,19 +124,7 @@ ShellRoot {
             Component.onCompleted: mainContainer.forceActiveFocus()
 
             Keys.onPressed: function(event) {
-                if (event.key === Qt.Key_Escape) {
-                    root.closeSelector();
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_Left) {
-                    root.selectedIndex = (root.selectedIndex - 1 + imageModel.count) % imageModel.count;
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_Right) {
-                    root.selectedIndex = (root.selectedIndex + 1) % imageModel.count;
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-                    root.applySelection();
-                    event.accepted = true;
-                }
+                root.handleKey(event);
             }
 
             Item {
@@ -228,6 +245,39 @@ ShellRoot {
                 text: "← / → : Navigate   •   ENTER : Apply   •   ESC : Cancel"
                 color: Theme.textSecondary
                 font.pixelSize: 12
+            }
+        }
+    }
+
+    // Multi-monitor backdrop so clicks and Escape on other screens also close the selector
+    Variants {
+        model: Quickshell.screens
+
+        PanelWindow {
+            required property var modelData
+            screen: modelData
+            visible: panel.screen !== null && modelData !== panel.screen
+
+            anchors { top: true; bottom: true; left: true; right: true }
+            color: "transparent"
+
+            WlrLayershell.namespace: "nirakase-image-selector-backdrop"
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+            exclusionMode: ExclusionMode.Ignore
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.AllButtons
+                onPressed: root.closeSelector()
+            }
+
+            Item {
+                anchors.fill: parent
+                focus: true
+                Keys.onPressed: function(event) {
+                    root.handleKey(event);
+                }
             }
         }
     }

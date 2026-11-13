@@ -5,4 +5,49 @@
 # License: MIT License | Copyright (c) 2026-present rbailon
 # ==============================================================================
 
-awww img "$1" --transition-type random --transition-step 90
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/nirakase"
+CURRENT_FILE="$CACHE_DIR/current-wallpaper"
+DEFAULT_WALLPAPER="$HOME/.local/share/nirakase/wallpapers/wallpaper.png"
+
+resolve_current_wallpaper() {
+    local candidate=""
+    if [[ -f "$CURRENT_FILE" ]]; then
+        candidate=$(cat "$CURRENT_FILE" 2>/dev/null)
+        if [[ -n "$candidate" && -f "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    fi
+
+    candidate=$(awww query 2>/dev/null | grep -oP 'image:\s*\K\S+' | head -n1)
+    if [[ -n "$candidate" && -f "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+
+    if [[ -f "$DEFAULT_WALLPAPER" ]]; then
+        realpath "$DEFAULT_WALLPAPER" 2>/dev/null || printf '%s\n' "$DEFAULT_WALLPAPER"
+        return 0
+    fi
+
+    return 1
+}
+
+if [[ "$1" == "--sync-current" ]]; then
+    outputs="$2"
+    img=$(resolve_current_wallpaper) || exit 1
+    if [[ -n "$outputs" ]]; then
+        awww img "$img" -o "$outputs" --transition-type random --transition-step 90
+    else
+        awww img "$img" --transition-type random --transition-step 90
+    fi
+    exit $?
+fi
+
+img="$1"
+[[ -n "$img" ]] || exit 1
+
+mkdir -p "$CACHE_DIR"
+realpath "$img" 2>/dev/null > "$CURRENT_FILE" || printf '%s\n' "$img" > "$CURRENT_FILE"
+
+awww img "$img" --transition-type random --transition-step 90

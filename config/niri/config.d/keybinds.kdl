@@ -55,6 +55,8 @@ binds {
     Mod+Ctrl+Down  { move-window-down-or-to-workspace-down; }
 
     // 3. Quick Monitor Navigation
+    Mod+Tab       { focus-monitor-next; }
+    Mod+Shift+Tab { focus-monitor-previous; }
     Mod+Ctrl+M { move-window-to-monitor-right; }
     Mod+Ctrl+N { move-window-to-monitor-left; }
 
@@ -345,6 +347,6 @@ binds {
 }
 
 switch-events {
-    lid-close { spawn "sh" "-c" "(pidof swaylock >/dev/null || swaylock -f) && systemctl suspend"; }
-    lid-open  { spawn "niri" "msg" "action" "power-on-monitors"; }
+    lid-close { spawn "nirakase-lid" "close"; }
+    lid-open  { spawn "nirakase-lid" "open"; }
 }

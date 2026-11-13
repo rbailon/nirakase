@@ -16,7 +16,7 @@ Item {
             "borderWidth": 1
         },
         "bar": {
-            "longbar": false,
+            "longbar": false
         },
         "clock": {
             "format24h": true,

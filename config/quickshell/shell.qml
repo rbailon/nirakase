@@ -10,21 +10,172 @@ import "island"
 import "services"
 
 ShellRoot {
+    id: root
+
+    property string focusedOutputName: ""
+    property var niriWorkspaces: []
+    property var niriWindows: ({})
+
+    readonly property var targetScreen: {
+        var screens = Quickshell.screens;
+        if (!screens || screens.length === 0) return null;
+        if (root.focusedOutputName !== "") {
+            for (var i = 0; i < screens.length; i++) {
+                if (screens[i].name === root.focusedOutputName) return screens[i];
+            }
+        }
+        return screens[0];
+    }
+
+    Process {
+        id: niriFloatStream
+        command: ["niri", "msg", "-j", "event-stream"]
+        running: true
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: data => {
+                if (!data || data.trim() === "") return;
+                try {
+                    var ev = JSON.parse(data);
+                    if (ev.WorkspacesChanged && Array.isArray(ev.WorkspacesChanged.workspaces)) {
+                        var wss = ev.WorkspacesChanged.workspaces;
+                        root.niriWorkspaces = wss;
+                        for (var i = 0; i < wss.length; i++) {
+                            if (wss[i].is_focused && wss[i].output) {
+                                root.focusedOutputName = wss[i].output;
+                                break;
+                            }
+                        }
+                        if (root.activePanel) root.activePanel.updateActiveWorkspaceForScreen();
+                    } else if (ev.WorkspaceActivated) {
+                        var actId = ev.WorkspaceActivated.id;
+                        var wss2 = root.niriWorkspaces;
+                        var actOutput = null;
+                        for (var m = 0; m < wss2.length; m++) {
+                            if (wss2[m].id === actId) {
+                                actOutput = wss2[m].output;
+                                break;
+                            }
+                        }
+                        if (actOutput !== null) {
+                            for (var n = 0; n < wss2.length; n++) {
+                                if (wss2[n].output === actOutput) {
+                                    wss2[n].is_active = (wss2[n].id === actId);
+                                }
+                            }
+                            if (ev.WorkspaceActivated.focused) {
+                                root.focusedOutputName = actOutput;
+                            }
+                        }
+                        if (root.activePanel) root.activePanel.updateActiveWorkspaceForScreen();
+                    } else if (ev.WindowsChanged && Array.isArray(ev.WindowsChanged.windows)) {
+                        var map = {};
+                        var wins = ev.WindowsChanged.windows;
+                        for (var j = 0; j < wins.length; j++) {
+                            map[wins[j].id] = wins[j];
+                        }
+                        root.niriWindows = map;
+                        if (root.activePanel) root.activePanel.recalculateFloatingOverlaps();
+                    } else if (ev.WindowOpenedOrChanged && ev.WindowOpenedOrChanged.window) {
+                        var w = ev.WindowOpenedOrChanged.window;
+                        root.niriWindows[w.id] = w;
+                        if (root.activePanel) root.activePanel.recalculateFloatingOverlaps();
+                    } else if (ev.WindowClosed) {
+                        delete root.niriWindows[ev.WindowClosed.id];
+                        if (root.activePanel) root.activePanel.recalculateFloatingOverlaps();
+                    } else if (ev.WindowLayoutsChanged && Array.isArray(ev.WindowLayoutsChanged.changes)) {
+                        var changes = ev.WindowLayoutsChanged.changes;
+                        for (var k = 0; k < changes.length; k++) {
+                            var winId = changes[k][0];
+                            var newLayout = changes[k][1];
+                            if (root.niriWindows[winId]) {
+                                root.niriWindows[winId].layout = newLayout;
+                            }
+                        }
+                        if (root.activePanel) root.activePanel.recalculateFloatingOverlaps();
+                    }
+                } catch (e) {}
+            }
+        }
+    }
+
+    // Track connected screens to apply wallpaper automatically on hotplug
+    property var knownScreenNames: []
+    property var pendingWallpaperOutputs: []
+
+    function currentScreenNames() {
+        var names = [];
+        var screens = Quickshell.screens;
+        if (!screens) return names;
+        for (var i = 0; i < screens.length; i++) {
+            if (screens[i] && screens[i].name) {
+                names.push(screens[i].name);
+            }
+        }
+        return names;
+    }
+
+    Component.onCompleted: {
+        root.knownScreenNames = root.currentScreenNames();
+    }
+
+    Timer {
+        id: wallpaperSyncTimer
+        interval: 400
+        repeat: false
+        onTriggered: {
+            if (root.pendingWallpaperOutputs.length > 0) {
+                var outputsArg = root.pendingWallpaperOutputs.join(",");
+                root.pendingWallpaperOutputs = [];
+                Quickshell.execDetached(["nirakase-wallpaper", "--sync-current", outputsArg]);
+            }
+        }
+    }
+
+    Connections {
+        target: Quickshell
+        function onScreensChanged() {
+            var current = root.currentScreenNames();
+            var added = [];
+            for (var i = 0; i < current.length; i++) {
+                if (root.knownScreenNames.indexOf(current[i]) === -1) {
+                    added.push(current[i]);
+                }
+            }
+            root.knownScreenNames = current;
+            if (added.length > 0) {
+                var pending = root.pendingWallpaperOutputs.slice();
+                for (var j = 0; j < added.length; j++) {
+                    if (pending.indexOf(added[j]) === -1) {
+                        pending.push(added[j]);
+                    }
+                }
+                root.pendingWallpaperOutputs = pending;
+                wallpaperSyncTimer.restart();
+            }
+        }
+    }
+
+    property var activePanel: null
 
     IpcHandler {
         id: ipcHandler
         target: "island"
 
         function toggleBar() {
-            islandPill.currentMode === 0 ? rowBar.longBar ? rowBar.longBar = false : rowBar.longBar = true : islandPill.currentMode = 0
-            Config.set("bar.longbar", rowBar.longBar)
+            if (!root.activePanel) return;
+            var p = root.activePanel;
+            p.islandPill.currentMode === 0 ? p.rowBar.longBar ? p.rowBar.longBar = false : p.rowBar.longBar = true : p.islandPill.currentMode = 0
+            Config.set("bar.longbar", p.rowBar.longBar)
         }
 
         function themes() {
-            if (islandPill.currentMode === 2) {
-                panelBase.closeThemes();
+            if (!root.activePanel) return;
+            var p = root.activePanel;
+            if (p.islandPill.currentMode === 2) {
+                p.closeThemes();
             } else {
-                islandPill.currentMode = 2;
+                p.islandPill.currentMode = 2;
             }
         }
 
@@ -33,14 +184,18 @@ ShellRoot {
         }
 
         function controlCenter() {
-            islandPill.currentMode === 3 ? islandPill.currentMode = 0 : islandPill.currentMode = 3;
+            if (!root.activePanel) return;
+            var p = root.activePanel;
+            p.islandPill.currentMode === 3 ? p.islandPill.currentMode = 0 : p.islandPill.currentMode = 3;
         }
 
         function power() {
-            if (islandPill.currentMode === 4) {
-                panelBase.closePowerMenu();
+            if (!root.activePanel) return;
+            var p = root.activePanel;
+            if (p.islandPill.currentMode === 4) {
+                p.closePowerMenu();
             } else {
-                islandPill.currentMode = 4;
+                p.islandPill.currentMode = 4;
             }
         }
 
@@ -49,15 +204,19 @@ ShellRoot {
         }
 
         function launcher() {
-            islandPill.currentMode === 5 ? panelBase.closeLauncher() : islandPill.currentMode = 5;
+            if (!root.activePanel) return;
+            var p = root.activePanel;
+            p.islandPill.currentMode === 5 ? p.closeLauncher() : p.islandPill.currentMode = 5;
         }
 
         function auth() {
-            if (islandPill.currentMode === 6) {
-                panelBase.closeAuth();
+            if (!root.activePanel) return;
+            var p = root.activePanel;
+            if (p.islandPill.currentMode === 6) {
+                p.closeAuth();
             } else {
-                islandPill.previousMode = islandPill.currentMode;
-                islandPill.currentMode = 6;
+                p.islandPill.previousMode = p.islandPill.currentMode;
+                p.islandPill.currentMode = 6;
             }
         }
 
@@ -78,10 +237,10 @@ ShellRoot {
         function powerProfileSet(p: string) { OsdService.powerProfileSet(p); }
         function idleToggle()           { IdleService.toggleInhibit(); }
         function mediaToggle()          { MediaService.togglePlaying(); }
-        function mediaToggleExpanded()  { mediaIslandPill.expanded = !mediaIslandPill.expanded; }
+        function mediaToggleExpanded()  { if (root.activePanel && root.activePanel.mediaIslandPill) root.activePanel.mediaIslandPill.expanded = !root.activePanel.mediaIslandPill.expanded; }
         function mediaNext()            { MediaService.next(); }
         function mediaPrevious()        { MediaService.previous(); }
-        function refreshUpdates()       { updatesWidget.refresh(); }
+        function refreshUpdates()       { if (root.activePanel && root.activePanel.updatesWidget) root.activePanel.updatesWidget.refresh(); }
     }
 
     Timer {
@@ -89,8 +248,8 @@ ShellRoot {
         interval: 1800
         repeat: false
         onTriggered: {
-            if (islandPill.currentMode === 1) {
-                islandPill.currentMode = islandPill.previousMode;
+            if (root.activePanel && root.activePanel.islandPill.currentMode === 1) {
+                root.activePanel.islandPill.currentMode = root.activePanel.islandPill.previousMode;
             }
         }
     }
@@ -98,9 +257,11 @@ ShellRoot {
     Connections {
         target: OsdService
         function onOsdTriggered() {
-            if (islandPill.currentMode !== 1) {
-                islandPill.previousMode = islandPill.currentMode;
-                islandPill.currentMode = 1;
+            if (!root.activePanel) return;
+            var pill = root.activePanel.islandPill;
+            if (pill.currentMode !== 1) {
+                pill.previousMode = pill.currentMode;
+                pill.currentMode = 1;
             }
             osdTimer.restart();
         }
@@ -109,21 +270,42 @@ ShellRoot {
     Connections {
         target: PolkitService
         function onAuthRequested() {
-            if (islandPill.currentMode !== 6) {
-                islandPill.previousMode = islandPill.currentMode;
-                islandPill.currentMode = 6;
+            if (!root.activePanel) return;
+            var pill = root.activePanel.islandPill;
+            if (pill.currentMode !== 6) {
+                pill.previousMode = pill.currentMode;
+                pill.currentMode = 6;
             }
         }
         function onAuthCompleted(success) {
-            if (islandPill.currentMode === 6) {
-                islandPill.currentMode = (islandPill.previousMode === 6) ? 0 : islandPill.previousMode;
+            if (!root.activePanel) return;
+            var pill = root.activePanel.islandPill;
+            if (pill.currentMode === 6) {
+                pill.currentMode = (pill.previousMode === 6) ? 0 : pill.previousMode;
             }
         }
     }
 
-    PanelWindow {
-        id: panelBase
-        exclusionMode: ExclusionMode.Ignore
+    Variants {
+        id: panelVariants
+        model: root.targetScreen ? [root.targetScreen] : []
+
+        PanelWindow {
+            id: panelBase
+            required property var modelData
+            screen: modelData
+            exclusionMode: ExclusionMode.Ignore
+
+            readonly property alias islandPill: islandPill
+            readonly property alias rowBar: rowBar
+            readonly property alias mediaIslandPill: mediaIslandPill
+            readonly property alias updatesWidget: updatesWidget
+
+            Component.onCompleted: {
+                root.activePanel = panelBase;
+                panelBase.updateActiveWorkspaceForScreen();
+            }
+            Component.onDestruction: if (root.activePanel === panelBase) root.activePanel = null
         WlrLayershell.layer: (panelBase.modalWindowActive || panelBase.isTrayMenuOpen || islandPill.currentMode === 1) ? WlrLayershell.Overlay : WlrLayershell.Top
 
         readonly property bool isModal: (islandPill.currentMode === 2 || islandPill.currentMode === 3 || islandPill.currentMode === 4 || islandPill.currentMode === 5 || islandPill.currentMode === 6)
@@ -132,10 +314,29 @@ ShellRoot {
 
         // Floating window overlap state per pill
         property var focusedWorkspaceId: null
-        property var niriWindows: ({})
         property bool overlapLeft: false
         property bool overlapCenter: false
         property bool overlapRight: false
+
+        function updateActiveWorkspaceForScreen() {
+            var targetName = panelBase.screen ? panelBase.screen.name : null;
+            var wss = root.niriWorkspaces;
+            var resolvedId = null;
+            for (var i = 0; i < wss.length; i++) {
+                if (targetName && wss[i].output === targetName && wss[i].is_active) {
+                    resolvedId = wss[i].id;
+                    break;
+                }
+                if (!targetName && wss[i].is_focused) {
+                    resolvedId = wss[i].id;
+                    break;
+                }
+            }
+            panelBase.focusedWorkspaceId = resolvedId;
+            panelBase.recalculateFloatingOverlaps();
+        }
+
+        onScreenChanged: updateActiveWorkspaceForScreen()
 
         readonly property bool hideLeft: overlapLeft && !isTrayMenuOpen && !isModal
         readonly property bool hideCenter: overlapCenter && !isModal && islandPill.currentMode === 0 && !(mediaIslandPill && mediaIslandPill.expanded)
@@ -155,8 +356,8 @@ ShellRoot {
             var centerLeftX = (screenW / 2) - centerHalfW;
             var centerRightX = (screenW / 2) + centerHalfW + ((mediaIslandPill && mediaIslandPill.active) ? (mediaIslandPill.width + 8) : 0);
 
-            for (var idKey in panelBase.niriWindows) {
-                var win = panelBase.niriWindows[idKey];
+            for (var idKey in root.niriWindows) {
+                var win = root.niriWindows[idKey];
                 if (!win || !win.is_floating) continue;
                 if (panelBase.focusedWorkspaceId !== null && win.workspace_id !== panelBase.focusedWorkspaceId) continue;
                 if (!win.layout || !win.layout.tile_pos_in_workspace_view) continue;
@@ -187,61 +388,6 @@ ShellRoot {
             panelBase.overlapLeft = oLeft;
             panelBase.overlapCenter = oCenter;
             panelBase.overlapRight = oRight;
-        }
-
-        Process {
-            id: niriFloatStream
-            command: ["niri", "msg", "-j", "event-stream"]
-            running: true
-            stdout: SplitParser {
-                splitMarker: "\n"
-                onRead: data => {
-                    if (!data || data.trim() === "") return;
-                    try {
-                        var ev = JSON.parse(data);
-                        if (ev.WorkspacesChanged && Array.isArray(ev.WorkspacesChanged.workspaces)) {
-                            var wss = ev.WorkspacesChanged.workspaces;
-                            for (var i = 0; i < wss.length; i++) {
-                                if (wss[i].is_focused) {
-                                    panelBase.focusedWorkspaceId = wss[i].id;
-                                    break;
-                                }
-                            }
-                            panelBase.recalculateFloatingOverlaps();
-                        } else if (ev.WorkspaceActivated) {
-                            if (ev.WorkspaceActivated.focused) {
-                                panelBase.focusedWorkspaceId = ev.WorkspaceActivated.id;
-                                panelBase.recalculateFloatingOverlaps();
-                            }
-                        } else if (ev.WindowsChanged && Array.isArray(ev.WindowsChanged.windows)) {
-                            var map = {};
-                            var wins = ev.WindowsChanged.windows;
-                            for (var j = 0; j < wins.length; j++) {
-                                map[wins[j].id] = wins[j];
-                            }
-                            panelBase.niriWindows = map;
-                            panelBase.recalculateFloatingOverlaps();
-                        } else if (ev.WindowOpenedOrChanged && ev.WindowOpenedOrChanged.window) {
-                            var w = ev.WindowOpenedOrChanged.window;
-                            panelBase.niriWindows[w.id] = w;
-                            panelBase.recalculateFloatingOverlaps();
-                        } else if (ev.WindowClosed) {
-                            delete panelBase.niriWindows[ev.WindowClosed.id];
-                            panelBase.recalculateFloatingOverlaps();
-                        } else if (ev.WindowLayoutsChanged && Array.isArray(ev.WindowLayoutsChanged.changes)) {
-                            var changes = ev.WindowLayoutsChanged.changes;
-                            for (var k = 0; k < changes.length; k++) {
-                                var winId = changes[k][0];
-                                var newLayout = changes[k][1];
-                                if (panelBase.niriWindows[winId]) {
-                                    panelBase.niriWindows[winId].layout = newLayout;
-                                }
-                            }
-                            panelBase.recalculateFloatingOverlaps();
-                        }
-                    } catch (e) {}
-                }
-            }
         }
 
         onIsModalChanged: {
@@ -331,21 +477,23 @@ ShellRoot {
             islandPill.currentMode = (islandPill.previousMode === 6) ? 0 : islandPill.previousMode;
         }
 
+        function dismissActiveModal() {
+            if (systemTrayWidget.menuOpen) {
+                systemTrayWidget.closeMenu();
+            }
+            if (islandPill.currentMode === 2) themesWidget.cancel();
+            else if (islandPill.currentMode === 3) panelBase.closeControlCenter();
+            else if (islandPill.currentMode === 4) panelBase.closePowerMenu();
+            else if (islandPill.currentMode === 5) panelBase.closeLauncher();
+            else if (islandPill.currentMode === 6) panelBase.closeAuth();
+        }
+
         // Dismiss modal or SystemTray menu on background click
         MouseArea {
             anchors.fill: parent
             enabled: panelBase.isModal || panelBase.isTrayMenuOpen
             acceptedButtons: Qt.AllButtons
-            onPressed: {
-                if (systemTrayWidget.menuOpen) {
-                    systemTrayWidget.closeMenu();
-                }
-                if (islandPill.currentMode === 2) themesWidget.cancel();
-                else if (islandPill.currentMode === 3) panelBase.closeControlCenter();
-                else if (islandPill.currentMode === 4) panelBase.closePowerMenu();
-                else if (islandPill.currentMode === 5) panelBase.closeLauncher();
-                else if (islandPill.currentMode === 6) panelBase.closeAuth();
-            }
+            onPressed: panelBase.dismissActiveModal()
         }
 
         Rectangle {
@@ -800,6 +948,54 @@ ShellRoot {
             }
         }
     }
+    }
 
-    NotificationPopup {}
+    // Multi-monitor backdrop so clicks and Escape on other screens dismiss active modals
+    Variants {
+        model: Quickshell.screens
+
+        PanelWindow {
+            required property var modelData
+            screen: modelData
+            visible: root.activePanel !== null && (root.activePanel.modalWindowActive || root.activePanel.isTrayMenuOpen) && modelData !== root.targetScreen
+
+            anchors {
+                top: true
+                bottom: true
+                left: true
+                right: true
+            }
+
+            color: "transparent"
+            exclusionMode: ExclusionMode.Ignore
+            WlrLayershell.layer: WlrLayershell.Overlay
+            WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.AllButtons
+                onPressed: if (root.activePanel) root.activePanel.dismissActiveModal()
+            }
+
+            Item {
+                anchors.fill: parent
+                focus: true
+                Keys.onPressed: event => {
+                    if (event.key === Qt.Key_Escape && root.activePanel) {
+                        root.activePanel.dismissActiveModal();
+                        event.accepted = true;
+                    }
+                }
+            }
+        }
+    }
+
+    Variants {
+        model: root.targetScreen ? [root.targetScreen] : []
+
+        NotificationPopup {
+            required property var modelData
+            screen: modelData
+        }
+    }
 }

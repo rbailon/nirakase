@@ -4,6 +4,11 @@
 # ==============================================================================
 set -euo pipefail
 
+# Allow only a single background-switcher instance at a time
+if pgrep -u "$USER" -f "quickshell.*background-switcher\.qml" >/dev/null 2>&1; then
+    exit 0
+fi
+
 WALLPAPERS_DIR="$HOME/.local/share/nirakase/wallpapers"
 CACHE_DIR="$HOME/.cache/nirakase/image-selector"
 mkdir -p "$CACHE_DIR/thumbs"
@@ -11,7 +16,7 @@ mkdir -p "$CACHE_DIR/thumbs"
 [[ -d "$WALLPAPERS_DIR" ]] || exit 1
 
 # Resolve current wallpaper path (dereferencing symlinks)
-raw_bg=$(awww query 2>/dev/null | grep -oP 'image:\s*\K\S+' || echo "")
+raw_bg=$(awww query 2>/dev/null | grep -oP 'image:\s*\K\S+' | head -n1 || echo "")
 current_bg=$(realpath "$raw_bg" 2>/dev/null || echo "$raw_bg")
 export NIRAKASE_CURRENT_WALLPAPER="$current_bg"
 

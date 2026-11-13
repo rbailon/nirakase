@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Nirakase: nirakase-lid
+# Description: Handles laptop lid close/open events with clamshell mode support.
+# License: MIT License | Copyright (c) 2026-present rbailon
+# ==============================================================================
+set -euo pipefail
+
+ACTION="${1:-}"
+
+get_outputs_info() {
+    local json
+    json=$(niri msg -j outputs 2>/dev/null) || return 1
+    python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+internal = [k for k in data if k.startswith("eDP-")]
+external_active = [
+    k for k, v in data.items()
+    if not k.startswith("eDP-") and v.get("logical") is not None
+]
+print(" ".join(internal))
+print(len(external_active))
+' <<< "$json"
+}
+
+case "$ACTION" in
+    close)
+        internal_list=""
+        external_count=0
+        if info=$(get_outputs_info); then
+            internal_list=$(sed -n '1p' <<< "$info")
+            external_count=$(sed -n '2p' <<< "$info")
+        fi
+
+        if [[ "$external_count" -gt 0 && -n "$internal_list" ]]; then
+            for out in $internal_list; do
+                niri msg output "$out" off || true
+            done
+        else
+            pidof swaylock >/dev/null || swaylock -f
+            systemctl suspend
+        fi
+        ;;
+    open)
+        internal_list=""
+        if info=$(get_outputs_info); then
+            internal_list=$(sed -n '1p' <<< "$info")
+        fi
+        if [[ -z "$internal_list" ]]; then
+            internal_list="eDP-1"
+        fi
+        for out in $internal_list; do
+            niri msg output "$out" on || true
+        done
+        niri msg action power-on-monitors || true
+        ;;
+    *)
+        echo "Usage: $0 {close|open}" >&2
+        exit 1
+        ;;
+esac
