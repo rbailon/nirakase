@@ -2,11 +2,11 @@
 vt = 1
 
 # Autologin session executed automatically on system boot
-# [initial_session]
-# command = "sh -c 'env UWSM_SILENT_START=2 uwsm start -g -1 -- niri.desktop"
-# user = "__USER__"
+[initial_session]
+command = "uwsm start -g 0 -- niri.desktop > /dev/null 2&>1"
+user = "__USER__"
 
 # Fallback greeter session shown after logging out
 [default_session]
-command = "tuigreet --time --remember --remember-session --asterisks --cmd 'env UWSM_SILENT_START=2 uwsm start -g -1 -- niri.desktop'"
+command = "tuigreet --time --remember --remember-session --asterisks --cmd 'env UWSM_SILENT_START=2 uwsm start -g 0 -- niri.desktop'"
 user = "greeter"
