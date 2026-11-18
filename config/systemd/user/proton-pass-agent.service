@@ -2,23 +2,29 @@
 Description=Proton Pass CLI SSH Agent
 Documentation=https://protonpass.github.io/pass-cli/
 # On-demand unit (intentionally no [Install] section).
-# It is started by the Nirakase pass-cli wrapper (local/bin/pass-cli) right after a
-# successful 'pass-cli login', and stopped before 'pass-cli login' / 'pass-cli logout'.
-# pass-cli uses its default key provider (Linux kernel keyring): the local encryption
-# key lives only in RAM and is wiped on every reboot, so one login per boot is required.
+# It is started by Niri autostart right after GNOME Keyring is unlocked, and by the
+# Nirakase pass-cli wrapper (local/bin/pass-cli) after a successful 'pass-cli login'.
+# pass-cli is configured to use the D-Bus Secret Service backend (GNOME Keyring) so
+# the local encryption key persists across reboots while remaining encrypted at rest.
+After=network-online.target dbus.socket gnome-keyring-daemon.service graphical-session.target
+Wants=gnome-keyring-daemon.service
+ConditionPathExists=%h/.local/share/proton-pass-cli/.session/session.json
 StartLimitIntervalSec=120
-StartLimitBurst=3
+StartLimitBurst=5
 
 [Service]
 Type=simple
 # Real binary only (never the Nirakase wrapper in $NIRAKASE_PATH/local/bin)
 Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
-# Enforce the default (kernel keyring) key provider
-UnsetEnvironment=PROTON_PASS_KEY_PROVIDER
+# Use the D-Bus Secret Service (GNOME Keyring) key provider for persistent sessions
+Environment="PROTON_PASS_KEY_PROVIDER=keyring"
+Environment="PROTON_PASS_LINUX_KEYRING=dbus"
+# Wait up to 30s for NetworkManager connectivity on fast autologin boots
+ExecStartPre=-/usr/bin/nm-online -q -t 30
 ExecStartPre=-/usr/bin/rm -f %t/proton-pass-agent.socket
 ExecStart=/usr/bin/env pass-cli ssh-agent start --socket-path %t/proton-pass-agent.socket
 ExecStopPost=-/usr/bin/rm -f %t/proton-pass-agent.socket
-# Only restart on crashes/signals; an unauthenticated session exits with an error code
-# and must NOT loop (looping pass-cli calls can wipe a session while logging in).
-Restart=on-abnormal
-RestartSec=10s
+# Retry on transient network/DNS failures at boot; local/bin/pass-cli stops this unit
+# during login, and ConditionPathExists prevents loops when logged out.
+Restart=on-failure
+RestartSec=5s

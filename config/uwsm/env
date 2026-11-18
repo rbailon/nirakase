@@ -15,8 +15,10 @@ export OZONE_PLATFORM_HINT=auto     # Electron-based apps (VSCode, Discord, etc.
 export CLUTTER_BACKEND=wayland
 export SDL_VIDEODRIVER=wayland
 
-# --- SSH Agent Configuration (Proton Pass CLI) ---
+# --- SSH Agent & Keyring Configuration (Proton Pass CLI) ---
 # export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
+export PROTON_PASS_KEY_PROVIDER="keyring"
+export PROTON_PASS_LINUX_KEYRING="dbus"
 export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/proton-pass-agent.socket"
 
 

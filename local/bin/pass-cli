@@ -15,6 +15,10 @@
 AGENT_UNIT="proton-pass-agent.service"
 AGENT_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/proton-pass-agent.socket"
 
+# Enforce D-Bus Secret Service (GNOME Keyring) backend across all shells
+export PROTON_PASS_KEY_PROVIDER="keyring"
+export PROTON_PASS_LINUX_KEYRING="dbus"
+
 # Locate the real pass-cli binary, skipping this wrapper
 self="$(readlink -f "${BASH_SOURCE[0]}")"
 real=""
@@ -44,6 +48,13 @@ agent_stop() {
 case "${1:-}" in
     login)
         agent_stop
+        # Ensure GNOME Keyring is running and unlocked before storing the session key
+        if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+            gnome-keyring-daemon --start --components=pkcs11,secrets >/dev/null 2>&1 || true
+        fi
+        if command -v secret-tool >/dev/null 2>&1; then
+            secret-tool lookup unlock-keyring dummy >/dev/null 2>&1 || true
+        fi
         "$real" "$@"
         rc=$?
         if [ "$rc" -eq 0 ]; then
