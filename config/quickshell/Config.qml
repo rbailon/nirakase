@@ -28,6 +28,11 @@ Item {
             "lockTimeout": 300,
             "dpmsTimeout": 330,
             "suspendTimeout": 900
+        },
+        "display": {
+            "autoPromptOnHotplug": true,
+            "lastLayoutMode": "extend-right",
+            "primaryOutput": ""
         }
     })
 
@@ -97,6 +102,7 @@ Item {
     readonly property var bar: values.bar
     readonly property var clock: values.clock
     readonly property var idle: values.idle
+    readonly property var display: values.display
 
     function set(keyPath, newValue) {
         var current = JSON.parse(JSON.stringify(root.values));

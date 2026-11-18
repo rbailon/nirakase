@@ -24,5 +24,10 @@
     "lockTimeout": 300,
     "dpmsTimeout": 330,
     "suspendTimeout": 900
+  },
+  "display": {
+    "autoPromptOnHotplug": true,
+    "lastLayoutMode": "extend-left",
+    "primaryOutput": "DP-4"
   }
 }

@@ -7,6 +7,7 @@ singleton Config 1.0 Config.qml
 AudioSelectorPanel 1.0 components/AudioSelectorPanel.qml
 BluetoothSelectorPanel 1.0 components/BluetoothSelectorPanel.qml
 CollapsibleItem 1.0 components/CollapsibleItem.qml
+DisplaySelectorPanel 1.0 components/DisplaySelectorPanel.qml
 IconButtonBar 1.0 components/IconButtonBar.qml
 IdleSelectorPanel 1.0 components/IdleSelectorPanel.qml
 NotificationsCard 1.0 components/NotificationsCard.qml
@@ -23,6 +24,7 @@ BatteryWidget 1.0 island/BatteryWidget.qml
 BluetoothWidget 1.0 island/BluetoothWidget.qml
 ControlCenterWidget 1.0 island/ControlCenterWidget.qml
 DateTimeWidget 1.0 island/DateTimeWidget.qml
+DisplayWidget 1.0 island/DisplayWidget.qml
 IdleWidget 1.0 island/IdleWidget.qml
 LauncherWidget 1.0 island/LauncherWidget.qml
 MediaIsland 1.0 island/MediaIsland.qml
@@ -41,6 +43,7 @@ WorkspacesWidget 1.0 island/WorkspacesWidget.qml
 singleton AudioService 1.0 services/AudioService.qml
 singleton BluetoothService 1.0 services/BluetoothService.qml
 singleton ClipboardService 1.0 services/ClipboardService.qml
+singleton DisplayService 1.0 services/DisplayService.qml
 singleton IdleService 1.0 services/IdleService.qml
 singleton MediaService 1.0 services/MediaService.qml
 singleton NetworkService 1.0 services/NetworkService.qml

@@ -40,6 +40,7 @@ FocusScope {
             BluetoothService.btPanelOpen = false;
             AudioService.audioPanelOpen = false;
             IdleService.idlePanelOpen = false;
+            DisplayService.displayPanelOpen = false;
         }
     }
 
@@ -50,6 +51,7 @@ FocusScope {
                 BluetoothService.btPanelOpen = false;
                 AudioService.audioPanelOpen = false;
                 IdleService.idlePanelOpen = false;
+                DisplayService.displayPanelOpen = false;
             }
             NetworkService.setWifiScanner(root.visible && NetworkService.wifiPanelOpen);
         }
@@ -62,6 +64,7 @@ FocusScope {
                 NetworkService.wifiPanelOpen = false;
                 AudioService.audioPanelOpen = false;
                 IdleService.idlePanelOpen = false;
+                DisplayService.displayPanelOpen = false;
             }
             BluetoothService.setDiscovering(root.visible && BluetoothService.btPanelOpen);
         }
@@ -74,6 +77,7 @@ FocusScope {
                 NetworkService.wifiPanelOpen = false;
                 BluetoothService.btPanelOpen = false;
                 IdleService.idlePanelOpen = false;
+                DisplayService.displayPanelOpen = false;
             }
         }
     }
@@ -85,6 +89,19 @@ FocusScope {
                 NetworkService.wifiPanelOpen = false;
                 BluetoothService.btPanelOpen = false;
                 AudioService.audioPanelOpen = false;
+                DisplayService.displayPanelOpen = false;
+            }
+        }
+    }
+
+    Connections {
+        target: DisplayService
+        function onDisplayPanelOpenChanged() {
+            if (DisplayService.displayPanelOpen) {
+                NetworkService.wifiPanelOpen = false;
+                BluetoothService.btPanelOpen = false;
+                AudioService.audioPanelOpen = false;
+                IdleService.idlePanelOpen = false;
             }
         }
     }
@@ -99,6 +116,8 @@ FocusScope {
                 AudioService.audioPanelOpen = false;
             } else if (IdleService.idlePanelOpen) {
                 IdleService.idlePanelOpen = false;
+            } else if (DisplayService.displayPanelOpen) {
+                DisplayService.displayPanelOpen = false;
             } else {
                 root.closeRequested();
             }
@@ -167,7 +186,16 @@ FocusScope {
         NetworkService.wifiPanelOpen = false;
         BluetoothService.btPanelOpen = false;
         AudioService.audioPanelOpen = false;
+        DisplayService.displayPanelOpen = false;
         IdleService.idlePanelOpen = true;
+    }
+
+    function openDisplayManager() {
+        NetworkService.wifiPanelOpen = false;
+        BluetoothService.btPanelOpen = false;
+        AudioService.audioPanelOpen = false;
+        IdleService.idlePanelOpen = false;
+        DisplayService.displayPanelOpen = true;
     }
 
     function setPowerProfile(profile) {
@@ -177,6 +205,7 @@ FocusScope {
     function refreshAll() {
         if (!statusProc.running) statusProc.running = true;
         NetworkService.refreshVpns();
+        DisplayService.refresh();
     }
 
     // Process to query current brightness
@@ -244,12 +273,21 @@ FocusScope {
         onCloseRequested: root.closeRequested()
     }
 
+    // ================= MONITORS & LAYOUT SELECTOR VIEW =================
+    DisplaySelectorPanel {
+        anchors.fill: parent
+        anchors.margins: 10
+        visible: DisplayService.displayPanelOpen
+        onBackRequested: DisplayService.displayPanelOpen = false
+        onCloseRequested: root.closeRequested()
+    }
+
     // ================= MAIN CONTAINER =================
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
         spacing: 9
-        visible: !NetworkService.wifiPanelOpen && !BluetoothService.btPanelOpen && !AudioService.audioPanelOpen && !IdleService.idlePanelOpen
+        visible: !NetworkService.wifiPanelOpen && !BluetoothService.btPanelOpen && !AudioService.audioPanelOpen && !IdleService.idlePanelOpen && !DisplayService.displayPanelOpen
 
         // ================= HEADER =================
         RowLayout {
@@ -622,12 +660,185 @@ FocusScope {
                 }
             }
 
-            SystemSlider {
-                icon: "󰃠"
-                value: root.brightnessLevel
-                from: 5
-                iconClickable: false
-                onMoved: val => root.setBrightness(val)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                SystemSlider {
+                    Layout.fillWidth: true
+                    icon: "󰃠"
+                    value: root.brightnessLevel
+                    from: 5
+                    iconClickable: false
+                    onMoved: val => root.setBrightness(val)
+                }
+
+                // Button to open Monitors & Display Layout manager
+                Rectangle {
+                    implicitWidth: 32
+                    implicitHeight: 32
+                    radius: 8
+                    color: DisplayService.hasMultipleMonitors
+                        ? (dispBtnMouse.containsMouse ? Theme.surfaceHover : Theme.surfaceActive)
+                        : (dispBtnMouse.containsMouse ? Theme.surfaceHover : Theme.surface)
+                    border.color: DisplayService.isMirroring
+                        ? (Theme.warning || "#F59E0B")
+                        : (DisplayService.hasMultipleMonitors
+                            ? Theme.accent
+                            : (dispBtnMouse.containsMouse ? Theme.borderHover : Theme.border))
+                    border.width: DisplayService.hasMultipleMonitors ? 1.5 : 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: DisplayService.icon
+                        font.family: "JetBrainsMono Nerd Font Propo"
+                        font.pixelSize: 13
+                        color: DisplayService.isMirroring
+                            ? (Theme.warning || "#F59E0B")
+                            : ((dispBtnMouse.containsMouse || DisplayService.hasMultipleMonitors) ? Theme.accent : Theme.textSecondary)
+                    }
+
+                    MouseArea {
+                        id: dispBtnMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: mouse => {
+                            if (mouse.button === Qt.RightButton && DisplayService.hasMultipleMonitors) {
+                                DisplayService.cycleLayoutMode();
+                            } else {
+                                root.openDisplayManager();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Compact Multi-Monitor card when 2+ monitors are connected
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 34
+                radius: 9
+                visible: DisplayService.hasMultipleMonitors
+                color: Theme.surface
+                border.color: DisplayService.isMirroring ? (Theme.warning || "#F59E0B") : Theme.accent
+                border.width: 1
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 8
+                    spacing: 8
+
+                    Text {
+                        text: DisplayService.icon
+                        font.family: "JetBrainsMono Nerd Font Propo"
+                        font.pixelSize: 14
+                        color: DisplayService.isMirroring ? (Theme.warning || "#F59E0B") : Theme.accent
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        ColumnLayout {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            spacing: 0
+
+                            Text {
+                                text: "Monitors (" + DisplayService.outputCount + ") · " + DisplayService.modeLabel
+                                font.family: "JetBrainsMono Nerd Font Propo"
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                color: Theme.textPrimary
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+
+                            Text {
+                                text: DisplayService.isMirroring
+                                    ? ("Cloning " + DisplayService.primaryOutputName + " ➔ " + DisplayService.secondaryOutputName)
+                                    : ("Primary: " + DisplayService.primaryOutputName + " · Next: " + DisplayService.secondaryOutputName)
+                                font.family: "JetBrainsMono Nerd Font Propo"
+                                font.pixelSize: 9
+                                color: DisplayService.isMirroring ? (Theme.warning || "#F59E0B") : Theme.textMuted
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.openDisplayManager()
+                        }
+                    }
+
+                    // Quick Mirror / Extend toggle button
+                    Rectangle {
+                        implicitWidth: mirQuickLbl.implicitWidth + 10
+                        implicitHeight: 22
+                        radius: 6
+                        color: mirQuickMouse.containsMouse ? Theme.surfaceActive : Theme.background
+                        border.color: DisplayService.isMirroring ? (Theme.warning || "#F59E0B") : Theme.border
+                        border.width: 1
+
+                        Text {
+                            id: mirQuickLbl
+                            anchors.centerIn: parent
+                            text: DisplayService.isMirroring ? "󰍺 Extend" : "󰍸 Clone"
+                            font.family: "JetBrainsMono Nerd Font Propo"
+                            font.pixelSize: 9
+                            font.weight: Font.DemiBold
+                            color: DisplayService.isMirroring ? (Theme.warning || "#F59E0B") : Theme.accent
+                        }
+
+                        MouseArea {
+                            id: mirQuickMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (DisplayService.isMirroring) {
+                                    DisplayService.applyLayout("extend-right");
+                                } else {
+                                    DisplayService.applyLayout("mirror");
+                                }
+                            }
+                        }
+                    }
+
+                    // Open Layout Manager button
+                    Rectangle {
+                        implicitWidth: layOpenLbl.implicitWidth + 10
+                        implicitHeight: 22
+                        radius: 6
+                        color: layOpenMouse.containsMouse ? Theme.surfaceActive : Theme.background
+                        border.color: layOpenMouse.containsMouse ? Theme.accent : Theme.border
+                        border.width: 1
+
+                        Text {
+                            id: layOpenLbl
+                            anchors.centerIn: parent
+                            text: "Layout"
+                            font.family: "JetBrainsMono Nerd Font Propo"
+                            font.pixelSize: 9
+                            font.weight: Font.DemiBold
+                            color: Theme.textPrimary
+                        }
+
+                        MouseArea {
+                            id: layOpenMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.openDisplayManager()
+                        }
+                    }
+                }
             }
         }
 

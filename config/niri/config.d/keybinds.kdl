@@ -162,6 +162,8 @@ binds {
     Mod+Alt+L repeat=false { spawn "quickshell" "ipc" "call" "island" "toggleBar"; }
     Mod+Alt+T repeat=false { spawn "quickshell" "ipc" "call" "island" "themes"; }
     Mod+Alt+N repeat=false { spawn "quickshell" "ipc" "call" "island" "notifications"; }
+    Mod+Alt+M repeat=false hotkey-overlay-title="Monitors & Display Layout" { spawn "quickshell" "ipc" "call" "island" "displays"; }
+    XF86Display repeat=false { spawn "quickshell" "ipc" "call" "island" "displays"; }
     Mod+Alt+P repeat=false { spawn "quickshell" "ipc" "call" "island" "power"; }
     Mod+Space repeat=false { spawn "quickshell" "ipc" "call" "island" "launcher"; }
  

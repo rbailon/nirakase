@@ -47,6 +47,7 @@ ShellRoot {
                             }
                         }
                         if (root.activePanel) root.activePanel.updateActiveWorkspaceForScreen();
+                        DisplayService.scheduleRefresh(200);
                     } else if (ev.WorkspaceActivated) {
                         var actId = ev.WorkspaceActivated.id;
                         var wss2 = root.niriWorkspaces;
@@ -143,6 +144,7 @@ ShellRoot {
                 }
             }
             root.knownScreenNames = current;
+            DisplayService.scheduleRefresh(180);
             if (added.length > 0) {
                 var pending = root.pendingWallpaperOutputs.slice();
                 for (var j = 0; j < added.length; j++) {
@@ -153,6 +155,20 @@ ShellRoot {
                 root.pendingWallpaperOutputs = pending;
                 wallpaperSyncTimer.restart();
             }
+        }
+    }
+
+    Connections {
+        target: DisplayService
+        function onMonitorHotplugged(addedOutputs) {
+            if (!DisplayService.autoPromptOnHotplug || !root.activePanel) return;
+            var p = root.activePanel;
+            NetworkService.wifiPanelOpen = false;
+            BluetoothService.btPanelOpen = false;
+            AudioService.audioPanelOpen = false;
+            IdleService.idlePanelOpen = false;
+            DisplayService.displayPanelOpen = true;
+            p.islandPill.currentMode = 3;
         }
     }
 
@@ -187,6 +203,30 @@ ShellRoot {
             if (!root.activePanel) return;
             var p = root.activePanel;
             p.islandPill.currentMode === 3 ? p.islandPill.currentMode = 0 : p.islandPill.currentMode = 3;
+        }
+
+        function displays() {
+            if (!root.activePanel) return;
+            var p = root.activePanel;
+            if (p.islandPill.currentMode === 3 && DisplayService.displayPanelOpen) {
+                DisplayService.displayPanelOpen = false;
+                p.islandPill.currentMode = 0;
+            } else {
+                NetworkService.wifiPanelOpen = false;
+                BluetoothService.btPanelOpen = false;
+                AudioService.audioPanelOpen = false;
+                IdleService.idlePanelOpen = false;
+                DisplayService.displayPanelOpen = true;
+                p.islandPill.currentMode = 3;
+            }
+        }
+
+        function displayMode(m: string) {
+            DisplayService.applyLayout(m);
+        }
+
+        function displayCycle() {
+            DisplayService.cycleLayoutMode();
         }
 
         function power() {
@@ -642,6 +682,15 @@ ShellRoot {
                                 IdleWidget {
                                     onOpenRequested: {
                                         if (islandPill.currentMode === 3 && !IdleService.idlePanelOpen) {
+                                            panelBase.closeControlCenter();
+                                        } else {
+                                            islandPill.currentMode = 3;
+                                        }
+                                    }
+                                }
+                                DisplayWidget {
+                                    onOpenRequested: {
+                                        if (islandPill.currentMode === 3 && !DisplayService.displayPanelOpen) {
                                             panelBase.closeControlCenter();
                                         } else {
                                             islandPill.currentMode = 3;

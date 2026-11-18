@@ -69,7 +69,7 @@ official_packages=(
   playerctl brightnessctl power-profiles-daemon
   networkmanager networkmanager-openconnect networkmanager-openvpn nm-connection-editor python-gobject python-evdev
   nwg-look qt5ct qt6ct kvantum ttf-jetbrains-mono-nerd jq
-  zen-browser-bin brave-origin-bin strata proton-pass neovim imagemagick wl-clipboard hyprpicker grim slurp satty libnotify
+  zen-browser-bin brave-origin-bin strata proton-pass neovim imagemagick wl-clipboard wl-mirror hyprpicker grim slurp satty libnotify
   wiremix btop impala bluetui upower curl pacman-contrib greetd greetd-tuigreet
   gnome-keyring libsecret gcr gcr-4 quickshell
 )

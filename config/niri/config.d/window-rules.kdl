@@ -76,3 +76,10 @@ window-rule {
     match app-id=r#"(firefox|zen)$"# title="^Picture-in-Picture$"
     open-floating true
 }
+
+// Screen Mirroring (wl-mirror): keep full opacity and sharp corners when unfocused
+window-rule {
+    match app-id="at.yrlf.wl_mirror"
+    opacity 1.0
+    geometry-corner-radius 0
+}
