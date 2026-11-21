@@ -208,7 +208,7 @@ Comment=Web Application for ${app_name}
 Exec=nirakase-launch-webapp "${app_url}"
 Icon=${icon_value}
 Terminal=false
-Categories=Network;WebBrowser;NirakaseWebApp;
+Categories=Network;WebBrowser;X-NirakaseWebApp;
 StartupWMClass=${domain}
 EOF
 then

@@ -1,0 +1,11 @@
+{
+  "nirakase-stop-verify": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "./hooks/stop-verify.sh",
+        "timeout": 30
+      }
+    ]
+  }
+}

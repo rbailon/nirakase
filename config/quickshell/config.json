@@ -12,7 +12,7 @@
     "cornerRadius": 12
   },
   "bar": {
-    "longbar": false
+    "longbar": true
   },
   "clock": {
     "format24h": true,
@@ -28,6 +28,6 @@
   "display": {
     "autoPromptOnHotplug": true,
     "lastLayoutMode": "extend-left",
-    "primaryOutput": "DP-4"
+    "primaryOutput": "DP-3"
   }
 }

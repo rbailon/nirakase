@@ -38,7 +38,7 @@ if [[ ! -f "$sig_file" || "$sig" != "$(cat "$sig_file" 2>/dev/null)" || ! -f "$i
 
         # Generate thumbnail if missing or modified
         if [[ ! -f "$thumb_path" || "$img" -nt "$thumb_path" ]]; then
-            magick "$img[0]" -auto-orient -resize '640x360^' -gravity center -extent '640x360' -quality 75 "$thumb_path" 2>/dev/null || cp "$img" "$thumb_path"
+            magick "${img}[0]" -auto-orient -resize '640x360^' -gravity center -extent '640x360' -quality 75 "$thumb_path" 2>/dev/null || cp "$img" "$thumb_path"
         fi
 
         images_array+=("{\"path\":\"$img\",\"thumb\":\"$thumb_path\",\"name\":\"$formatted_name\"}")

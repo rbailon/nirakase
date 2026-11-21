@@ -171,7 +171,8 @@ safe_symlink() {
 
   # 2. If target exists physically, backup to prevent data loss
   if [ -e "$target" ] || [ -L "$target" ]; then
-    local backup="${target}.bak.$(date +%Y%m%d_%H%M%S)"
+    local backup
+    backup="${target}.bak.$(date +%Y%m%d_%H%M%S)"
     echo -e "  ${YELLOW}[!]${NC} Conflict detected at $target. Backing up to $backup"
     mv "$target" "$backup"
   fi

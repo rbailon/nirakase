@@ -726,11 +726,9 @@ ShellRoot {
                                     onOpenRequested: {
                                         BluetoothService.btPanelOpen = false;
                                         AudioService.audioPanelOpen = false;
-                                        if (islandPill.currentMode === 3 && !NetworkService.wifiPanelOpen) {
-                                            panelBase.closeControlCenter();
-                                        } else {
-                                            islandPill.currentMode = 3;
-                                        }
+                                        IdleService.idlePanelOpen = false;
+                                        DisplayService.displayPanelOpen = false;
+                                        islandPill.currentMode = 3;
                                     }
                                 }
                                 AudioWidget {

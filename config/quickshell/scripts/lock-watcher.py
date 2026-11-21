@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
-import os
-import sys
-import time
-import glob
 import ctypes
+import glob
+import os
 import select
 import signal
+import sys
+import time
+from contextlib import suppress
 
 # Close any inherited file descriptors (e.g. D-Bus sockets) from parent process
-try:
+with suppress(OSError):
     os.closerange(3, 4096)
-except Exception:
-    pass
 
 # Ask kernel to send SIGTERM if parent process dies
-try:
+with suppress(OSError, AttributeError):
     libc = ctypes.CDLL("libc.so.6")
     libc.prctl(1, signal.SIGTERM, 0, 0, 0)
-except Exception:
-    pass
 
 try:
     import evdev
@@ -26,38 +23,36 @@ try:
 except ImportError:
     sys.exit(0)
 
+
 def handle_sig(sig, frame):
     sys.exit(0)
+
 
 signal.signal(signal.SIGINT, handle_sig)
 signal.signal(signal.SIGTERM, handle_sig)
 
+
 def get_led_state(pattern):
     for path in glob.glob(pattern):
-        try:
-            with open(path, "r") as f:
-                if f.read().strip() == "1":
-                    return True
-        except Exception:
-            pass
+        with suppress(OSError), open(path, "r") as f:
+            if f.read().strip() == "1":
+                return True
     return False
+
 
 def get_keyboards():
     keyboards = []
-    try:
+    with suppress(OSError):
         for path in evdev.list_devices():
-            try:
+            with suppress(OSError):
                 d = evdev.InputDevice(path)
                 cap = d.capabilities()
                 if ecodes.EV_KEY in cap:
                     keys = cap[ecodes.EV_KEY]
                     if ecodes.KEY_CAPSLOCK in keys or ecodes.KEY_NUMLOCK in keys:
                         keyboards.append(d)
-            except Exception:
-                pass
-    except Exception:
-        pass
     return keyboards
+
 
 def main():
     keyboards = get_keyboards()
@@ -76,10 +71,8 @@ def main():
                 fresh_keyboards = get_keyboards()
                 if {d.path for d in fresh_keyboards} != cur_paths:
                     for d in dev_map.values():
-                        try:
+                        with suppress(OSError):
                             d.close()
-                        except Exception:
-                            pass
                     dev_map = {d.fd: d for d in fresh_keyboards}
                 continue
 
@@ -100,14 +93,15 @@ def main():
                                 state = "ON" if get_led_state("/sys/class/leds/*::numlock/brightness") else "OFF"
                                 sys.stdout.write(f"NUMLOCK:{state}\n")
                                 sys.stdout.flush()
-                except (BrokenPipeError, IOError):
+                except BrokenPipeError:
                     sys.exit(0)
-                except Exception:
+                except OSError:
                     dev_map.pop(fd, None)
         except (BrokenPipeError, KeyboardInterrupt, SystemExit):
             sys.exit(0)
-        except Exception:
-            pass
+        except (OSError, ValueError):
+            continue
+
 
 if __name__ == "__main__":
     main()

@@ -1,1 +1,5 @@
-for f in $NIRAKASE_PATH/default/bash/fns/*; do source "$f"; done
+for f in "${NIRAKASE_PATH}"/default/bash/fns/*; do
+  [ -f "$f" ] || continue
+  # shellcheck source=/dev/null
+  source "$f"
+done

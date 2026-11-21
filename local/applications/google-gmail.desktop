@@ -6,5 +6,5 @@ Comment=Web Application for Google Gmail
 Exec=nirakase-launch-webapp "https://mail.google.com/mail/"
 Icon=/home/rbailon/.local/share/applications/icons/google-gmail.png
 Terminal=false
-Categories=Network;WebBrowser;NirakaseWebApp;
+Categories=Network;WebBrowser;X-NirakaseWebApp;
 StartupWMClass=mail.google.com

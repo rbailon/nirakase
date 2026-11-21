@@ -1,6 +1,11 @@
+# shellcheck source=/dev/null
 source ~/.local/share/nirakase/default/bash/envs
+# shellcheck source=/dev/null
 source ~/.local/share/nirakase/default/bash/shell
+# shellcheck source=/dev/null
 source ~/.local/share/nirakase/default/bash/aliases
+# shellcheck source=/dev/null
 source ~/.local/share/nirakase/default/bash/functions
+# shellcheck source=/dev/null
 source ~/.local/share/nirakase/default/bash/init
 [[ $- == *i* ]] && bind -f ~/.local/share/nirakase/default/bash/inputrc

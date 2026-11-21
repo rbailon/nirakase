@@ -5,6 +5,7 @@
 # License: MIT License | Copyright (c) 2026-present rbailon
 # ==============================================================================
 
-export PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd):$PATH"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PATH="${SCRIPT_DIR}:$PATH"
 
 exec setsid uwsm-app -- xdg-terminal-exec "--app-id=org.nirakase.$(basename "$1")" -e "$1" "${@:2}"

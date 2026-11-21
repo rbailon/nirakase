@@ -452,11 +452,13 @@ FocusScope {
 
                     Text {
                         text: {
-                            if (!NetworkService.wiredHasLink) return "Cable unplugged";
                             if (NetworkService.wiredConnecting) return "Obtaining IP address...";
-                            if (!NetworkService.wiredConnected) return "Physical link detected · Disconnected";
-                            var spd = NetworkService.wiredLinkSpeed > 0 ? (NetworkService.wiredLinkSpeed + " Mbps · ") : "";
-                            return spd + "IP: " + NetworkService.wiredIp;
+                            if (NetworkService.wiredConnected) {
+                                var spd = NetworkService.wiredLinkSpeed > 0 ? (NetworkService.wiredLinkSpeed + " Mbps · ") : "";
+                                return spd + "IP: " + NetworkService.wiredIp;
+                            }
+                            if (NetworkService.wiredHasLink) return "Physical link detected · Disconnected";
+                            return "Disconnected";
                         }
                         font.family: "JetBrainsMono Nerd Font Propo"
                         font.pixelSize: 9
@@ -466,9 +468,9 @@ FocusScope {
                     }
                 }
 
-                // Connect / Disconnect Ethernet button if cable is plugged in
+                // Connect / Disconnect Ethernet button
                 Rectangle {
-                    visible: NetworkService.wiredHasLink
+                    visible: NetworkService.hasWiredDevice
                     implicitWidth: ethBtnLbl.implicitWidth + 12
                     implicitHeight: 22
                     radius: 6

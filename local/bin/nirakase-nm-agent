@@ -13,11 +13,13 @@ import signal
 import subprocess
 import sys
 import threading
+from contextlib import suppress
 
 import gi
+
 gi.require_version("NM", "1.0")
 gi.require_version("Secret", "1")
-from gi.repository import GLib, Gio, NM, Secret
+from gi.repository import NM, Gio, GLib, Secret
 
 AGENT_IDENTIFIER = "org.nirakase.nm-agent"
 NM_BUS_NAME = "org.freedesktop.NetworkManager"
@@ -116,7 +118,7 @@ class NirakaseSecretAgent:
                 -1,
                 None,
             )
-        except Exception as exc:
+        except GLib.Error as exc:
             print(f"[nirakase-nm-agent] Warning: Could not register yet: {exc}", file=sys.stderr)
 
     def _on_nm_owner_changed(self, _conn, _sender, _path, _iface, _signal, params, _user_data):
@@ -162,22 +164,18 @@ class NirakaseSecretAgent:
         with self.lock:
             proc = self.active_dialogs.pop(key, None)
         if proc and proc.poll() is None:
-            try:
+            with suppress(OSError):
                 proc.terminate()
-            except Exception:
-                pass
 
     @staticmethod
     def _find_vpn_plugin(service_type: str):
         search_dirs = ["/usr/lib/NetworkManager/VPN", "/etc/NetworkManager/VPN"]
         for d in search_dirs:
             for path in glob.glob(os.path.join(d, "*.name")):
-                try:
+                with suppress(GLib.Error):
                     plugin = NM.VpnPluginInfo.new_from_file(path)
                     if plugin and plugin.get_service() == service_type:
                         return plugin
-                except Exception:
-                    continue
         return None
 
     @staticmethod
@@ -201,7 +199,7 @@ class NirakaseSecretAgent:
                     s_text = s_val_obj.get_text()
                     if s_text is not None:
                         result[s_key] = s_text
-        except Exception as exc:
+        except GLib.Error as exc:
             print(f"[nirakase-nm-agent] Keyring lookup warning: {exc}", file=sys.stderr)
         return result
 
@@ -277,18 +275,16 @@ class NirakaseSecretAgent:
 
             # 3. Signal the auth-dialog to exit cleanly with QUIT
             if proc.stdin:
-                try:
+                with suppress(OSError):
                     proc.stdin.write(b"QUIT\n")
                     proc.stdin.flush()
                     proc.stdin.close()
-                except Exception:
-                    pass
 
             if proc.stderr:
                 stderr_output = proc.stderr.read().decode("utf-8", errors="replace").strip()
 
             proc.wait(timeout=5)
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             return None, f"Failed to execute auth-dialog: {exc}"
         finally:
             with self.lock:
@@ -400,8 +396,8 @@ class NirakaseSecretAgent:
                         str(v),
                         None,
                     )
-                except Exception:
-                    pass
+                except GLib.Error as exc:
+                    print(f"[nirakase-nm-agent] Warning: Could not save VPN secret key '{k}': {exc}", file=sys.stderr)
 
         GLib.idle_add(invocation.return_value, None)
 
@@ -415,8 +411,8 @@ class NirakaseSecretAgent:
                     {"connection-uuid": uuid},
                     None,
                 )
-            except Exception:
-                pass
+            except GLib.Error as exc:
+                print(f"[nirakase-nm-agent] Warning: Could not clear VPN secrets: {exc}", file=sys.stderr)
         GLib.idle_add(invocation.return_value, None)
 
 

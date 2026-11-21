@@ -21,10 +21,18 @@ Item {
     property string lastVpnError: ""
     property string _vpnStderrBuffer: ""
 
+    // Physical carrier, link speed & IPv4 per interface (from /sys/class/net & ip -4)
+    property var wiredCarriers: ({})
+    property var _pendingCarriers: ({})
+    property bool _carrierRefreshQueued: false
+    property int _ipRetryCount: 0
+    property string preferredWiredName: ""
+
     Component.onCompleted: {
         if (Networking.canCheckConnectivity) {
             Networking.connectivityCheckEnabled = true;
         }
+        root.refreshWiredCarriers();
         root.refreshVpns();
     }
 
@@ -47,21 +55,43 @@ Item {
         return firstWifi;
     }
 
-    // Primary Ethernet / Wired device (prioritizes connected or with physical link)
+    // Primary Ethernet / Wired device (prioritizes connected -> connecting -> physical link -> last active)
     readonly property var wiredDevice: {
         var devs = Networking.devices.values;
         if (!devs) return null;
+        var firstConnecting = null;
         var firstWithLink = null;
+        var preferredDev = null;
         var firstWired = null;
         for (var i = 0; i < devs.length; i++) {
             var d = devs[i];
             if (d && d.type === DeviceType.Wired) {
                 if (d.connected) return d;
-                if (d.hasLink && !firstWithLink) firstWithLink = d;
+                if (d.state === ConnectionState.Connecting && !firstConnecting) firstConnecting = d;
+                var cInfo = root.wiredCarriers[d.name];
+                var hasPhysLink = (cInfo && cInfo.carrier) || d.hasLink || (d.linkSpeed || 0) > 0;
+                if (hasPhysLink && !firstWithLink) firstWithLink = d;
+                if (root.preferredWiredName !== "" && d.name === root.preferredWiredName) preferredDev = d;
                 if (!firstWired) firstWired = d;
             }
         }
-        return firstWithLink ? firstWithLink : firstWired;
+        if (firstConnecting) return firstConnecting;
+        if (firstWithLink) return firstWithLink;
+        if (preferredDev) return preferredDev;
+        return firstWired;
+    }
+
+    onWiredConnectedChanged: {
+        if (wiredConnected && wiredDevice && wiredDevice.name) {
+            root.preferredWiredName = wiredDevice.name;
+        }
+        root._ipRetryCount = 0;
+        root.refreshWiredCarriers();
+    }
+
+    onWifiConnectedChanged: {
+        root._ipRetryCount = 0;
+        root.refreshWiredCarriers();
     }
 
     // Currently active Wi-Fi network
@@ -133,7 +163,12 @@ Item {
     readonly property string wifiSsid: activeWifiNetwork ? (activeWifiNetwork.name || "Unknown") : ""
     readonly property int wifiSignalPct: activeWifiNetwork ? Math.round((activeWifiNetwork.signalStrength || 0) * 100) : 0
     readonly property int wifiSignalLevel: signalToLevel(wifiSignalPct)
-    readonly property string wifiIp: (wifiDevice && wifiDevice.address) ? wifiDevice.address : "No IP"
+    readonly property string wifiIp: {
+        if (!wifiDevice) return "No IP";
+        var cInfo = root.wiredCarriers[wifiDevice.name];
+        if (cInfo && cInfo.ipv4 && cInfo.ipv4 !== "") return cInfo.ipv4;
+        return "No IP";
+    }
     readonly property string wifiSecurity: activeWifiNetwork ? securityLabel(activeWifiNetwork.security) : ""
 
     readonly property string wifiIcon: {
@@ -156,20 +191,39 @@ Item {
     // 4. Reactive Ethernet Properties (Wired NIC)
     // =============================================================
     readonly property bool hasWiredDevice: wiredDevice !== null
-    readonly property bool wiredHasLink: wiredDevice ? wiredDevice.hasLink : false
+    readonly property bool wiredHasLink: {
+        if (!wiredDevice) return false;
+        var cInfo = root.wiredCarriers[wiredDevice.name];
+        if (cInfo && cInfo.carrier !== undefined) {
+            return cInfo.carrier || wiredDevice.connected;
+        }
+        return wiredDevice.hasLink || wiredDevice.connected || (wiredDevice.linkSpeed || 0) > 0;
+    }
     readonly property bool wiredConnected: wiredDevice ? wiredDevice.connected : false
     readonly property bool wiredConnecting: wiredDevice ? (wiredDevice.state === ConnectionState.Connecting) : false
     readonly property string wiredInterface: wiredDevice ? (wiredDevice.name || "") : ""
     readonly property string wiredConnectionName: (wiredDevice && wiredDevice.network && wiredDevice.network.name) ? wiredDevice.network.name : (wiredInterface || "Ethernet")
-    readonly property int wiredLinkSpeed: wiredDevice ? (wiredDevice.linkSpeed || 0) : 0
-    readonly property string wiredIp: (wiredDevice && wiredDevice.address) ? wiredDevice.address : "No IP"
+    readonly property int wiredLinkSpeed: {
+        if (!wiredDevice) return 0;
+        if ((wiredDevice.linkSpeed || 0) > 0) return wiredDevice.linkSpeed;
+        var cInfo = root.wiredCarriers[wiredDevice.name];
+        return (cInfo && cInfo.speed > 0) ? cInfo.speed : 0;
+    }
+    readonly property string wiredIp: {
+        if (!wiredDevice) return "No IP";
+        var cInfo = root.wiredCarriers[wiredDevice.name];
+        if (cInfo && cInfo.ipv4 && cInfo.ipv4 !== "") return cInfo.ipv4;
+        return "No IP";
+    }
 
     readonly property string wiredIcon: {
-        if (!hasWiredDevice || !wiredHasLink) return "󰌙"; // Unplugged
+        if (!hasWiredDevice) return "󰌙";
         if (wiredConnecting) return "󰌘";
-        if (!wiredConnected) return "󰌙";
-        if (isLimited || isCaptivePortal) return "󰌚";      // No Internet
-        return "󰈀";                                       // Ethernet connected
+        if (wiredConnected) {
+            if (isLimited || isCaptivePortal) return "󰌚";  // No Internet
+            return "󰈀";                                   // Ethernet connected
+        }
+        return "󰌙";                                       // Disconnected / Unplugged
     }
 
     // =============================================================
@@ -307,13 +361,79 @@ Item {
     }
 
     function toggleWired() {
-        if (!wiredDevice) return;
-        if (wiredDevice.connected) {
-            wiredDevice.disconnect();
-        } else if (wiredDevice.network) {
-            wiredDevice.network.connect();
-        } else {
-            wiredDevice.autoconnect = true;
+        if (!wiredDevice || wiredActionProc.running) return;
+        var iface = wiredDevice.name || root.preferredWiredName;
+        if (!iface) return;
+        root.preferredWiredName = iface;
+        var action = (wiredDevice.connected || wiredDevice.state === ConnectionState.Connecting)
+            ? "disconnect"
+            : "connect";
+        wiredActionProc.command = ["nmcli", "device", action, iface];
+        wiredActionProc.running = true;
+    }
+
+    function refreshWiredCarriers() {
+        if (wiredCarrierProc.running) {
+            root._carrierRefreshQueued = true;
+            return;
+        }
+        root._carrierRefreshQueued = false;
+        root._pendingCarriers = ({});
+        wiredCarrierProc.running = true;
+    }
+
+    Timer {
+        id: ipRetryTimer
+        interval: 1000
+        repeat: false
+        onTriggered: root.refreshWiredCarriers()
+    }
+
+    Process {
+        id: wiredActionProc
+        environment: ({ "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8" })
+        onExited: {
+            root._ipRetryCount = 0;
+            root.refreshWiredCarriers();
+            root.refreshVpns();
+        }
+    }
+
+    Process {
+        id: wiredCarrierProc
+        command: [
+            "sh",
+            "-c",
+            "for d in /sys/class/net/*; do [ -e \"$d/device\" ] || continue; n=${d##*/}; c=$(cat \"$d/carrier\" 2>/dev/null || echo 0); s=$(cat \"$d/speed\" 2>/dev/null || echo 0); ip4=$(ip -4 -o addr show dev \"$n\" 2>/dev/null | awk '{sub(/\\/.*/, \"\", $4); print $4; exit}'); echo \"$n:$c:$s:$ip4\"; done"
+        ]
+        running: false
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: data => {
+                var line = data.trim();
+                if (!line) return;
+                var parts = line.split(":");
+                if (parts.length < 3) return;
+                var ifname = parts[0];
+                var carrier = parseInt(parts[1]) === 1;
+                var speed = parseInt(parts[2]);
+                var ipv4 = parts.length >= 4 ? (parts[3] || "").trim() : "";
+                root._pendingCarriers[ifname] = {
+                    carrier: carrier,
+                    speed: (!isNaN(speed) && speed > 0) ? speed : 0,
+                    ipv4: ipv4
+                };
+            }
+        }
+        onExited: {
+            root.wiredCarriers = Object.assign({}, root._pendingCarriers);
+            if (root._carrierRefreshQueued) {
+                root._carrierRefreshQueued = false;
+                root.refreshWiredCarriers();
+            } else if (((root.wifiConnected && root.wifiIp === "No IP") || (root.wiredConnected && root.wiredIp === "No IP")) && root._ipRetryCount < 6) {
+                root._ipRetryCount++;
+                ipRetryTimer.restart();
+            }
         }
     }
 
@@ -321,6 +441,7 @@ Item {
     // 7. Reactive Monitor & Control for VPN / WireGuard Profiles
     // =============================================================
     function refreshVpns() {
+        root.refreshWiredCarriers();
         if (vpnQueryProc.running) {
             root._vpnRefreshQueued = true;
             return;
