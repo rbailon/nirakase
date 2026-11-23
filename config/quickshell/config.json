@@ -12,7 +12,7 @@
     "cornerRadius": 12
   },
   "bar": {
-    "longbar": true
+    "longbar": false
   },
   "clock": {
     "format24h": true,

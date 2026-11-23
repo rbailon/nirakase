@@ -10,8 +10,8 @@ import "../services"
 FocusScope {
     id: root
 
-    implicitWidth: 420
-    implicitHeight: 580
+    implicitWidth: DisplayService.displayPanelOpen ? 560 : 420
+    implicitHeight: DisplayService.displayPanelOpen ? 610 : 580
     width: implicitWidth
     height: implicitHeight
     focus: true
@@ -35,12 +35,7 @@ FocusScope {
             BluetoothService.setDiscovering(BluetoothService.btPanelOpen);
         } else {
             NetworkService.setWifiScanner(false);
-            NetworkService.wifiPanelOpen = false;
             BluetoothService.setDiscovering(false);
-            BluetoothService.btPanelOpen = false;
-            AudioService.audioPanelOpen = false;
-            IdleService.idlePanelOpen = false;
-            DisplayService.displayPanelOpen = false;
         }
     }
 

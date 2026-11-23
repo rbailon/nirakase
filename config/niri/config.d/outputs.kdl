@@ -1,4 +1,8 @@
-// You can configure outputs by their name, which you can find
+// Managed multi-monitor configuration written automatically by Nirakase Display Manager.
+// Saved per topology in ~/.local/state/nirakase/displays.json and synced here for instant startup.
+include optional=true "~/.local/state/nirakase/outputs.kdl"
+
+// You can also configure manual output overrides below by connector name, which you can find
 // by running `niri msg outputs` while inside a niri instance.
 // The built-in laptop monitor is usually called "eDP-1".
 // Find more information on the wiki:

@@ -7,10 +7,15 @@ import ".."
 Singleton {
     id: root
 
+    readonly property string _scriptPath: Quickshell.env("HOME") + "/.config/quickshell/scripts/display-manager.py"
+
     // Controls whether the Display & Monitors subpanel is open in Control Center
     property bool displayPanelOpen: false
 
-    // Raw and structured outputs list from `niri msg -j outputs`
+    // Screen where the Quickshell panel is currently displayed (set by shell.qml)
+    property string activeScreenName: ""
+
+    // Raw and structured outputs list from display-manager.py query
     property var outputs: []
     property int outputCount: outputs.length
     property int activeOutputCount: {
@@ -37,19 +42,37 @@ Singleton {
     // "mirror", "primary-only", "secondary-only", "custom"
     property string currentLayoutMode: "single"
 
-    // Feedback message when saving to outputs.kdl or applying changes
+    // Saved profile & apply state
+    property bool hasSavedProfile: false
+    property string topologyKey: ""
+    property bool isApplying: false
+
+    // Risky-change confirmation (auto-revert safety timer) and quick Undo
+    property bool pendingConfirmation: false
+    property int confirmationSecondsLeft: 0
+    property bool canUndo: false
+
+    // Feedback message when saving or applying changes
     property string statusFeedback: ""
 
-    // Auto-open display selector when a new monitor is hotplugged
+    // Auto-open display selector when an unconfigured monitor setup is hotplugged
     readonly property bool autoPromptOnHotplug: (Config.display && Config.display.autoPromptOnHotplug !== undefined)
         ? (Config.display.autoPromptOnHotplug === true)
         : true
 
     signal monitorHotplugged(var addedOutputs)
+    signal outputsUpdated()
+    signal applyFinished(bool success)
 
     property bool _initialReadDone: false
+    property bool _initialRestoreTriggered: false
+    property string _knownTopologyKey: ""
     property var _knownConnectorNames: []
-    property var _cachedScales: ({})
+    property var _pendingAddedConnectors: []
+    property var _previousSnapshot: null
+    property var _pendingCommitPayload: null
+    property bool _lastApplyWasRisky: false
+    property bool _lastApplyWasRevert: false
 
     readonly property var primaryOutput: {
         for (var i = 0; i < outputs.length; i++) {
@@ -84,7 +107,7 @@ Singleton {
             case "extend-below":   return "Extend Below";
             case "primary-only":   return "Primary Only";
             case "secondary-only": return "External Only";
-            default:               return "Extended";
+            default:               return "Custom Layout";
         }
     }
 
@@ -104,21 +127,6 @@ Singleton {
         Config.set("display.autoPromptOnHotplug", !!val);
     }
 
-    function normalizeTransform(raw) {
-        if (!raw) return "normal";
-        var s = String(raw).toLowerCase().replace(/^_/, "");
-        if (s === "flipped90") return "flipped-90";
-        if (s === "flipped180") return "flipped-180";
-        if (s === "flipped270") return "flipped-270";
-        if (s === "90" || s === "180" || s === "270" || s === "normal" || s === "flipped") return s;
-        return "normal";
-    }
-
-    function isInternalConnector(name) {
-        if (!name) return false;
-        return name.indexOf("eDP-") === 0 || name.indexOf("LVDS-") === 0 || name.indexOf("DSI-") === 0;
-    }
-
     function showFeedback(msg) {
         root.statusFeedback = msg;
         feedbackTimer.restart();
@@ -126,13 +134,41 @@ Singleton {
 
     Timer {
         id: feedbackTimer
-        interval: 3000
+        interval: 3500
         repeat: false
         onTriggered: root.statusFeedback = ""
     }
 
-    // Refresh outputs from Niri & check wl-mirror state
+    Timer {
+        id: undoExpireTimer
+        interval: 15000
+        repeat: false
+        onTriggered: {
+            if (!root.pendingConfirmation) {
+                root.canUndo = false;
+                root._previousSnapshot = null;
+            }
+        }
+    }
+
+    Timer {
+        id: confirmCountdownTimer
+        interval: 1000
+        repeat: true
+        running: root.pendingConfirmation
+        onTriggered: {
+            if (root.confirmationSecondsLeft > 1) {
+                root.confirmationSecondsLeft -= 1;
+            } else {
+                confirmCountdownTimer.stop();
+                root.revertChanges();
+            }
+        }
+    }
+
+    // ── Query live state from display-manager.py ────────────────────
     function refresh() {
+        if (root.isApplying) return;
         if (!queryProc.running) {
             queryProc.running = true;
         }
@@ -140,30 +176,19 @@ Singleton {
 
     Timer {
         id: delayedRefreshTimer
-        interval: 280
+        interval: 220
         repeat: false
         onTriggered: root.refresh()
     }
 
     function scheduleRefresh(delayMs) {
-        delayedRefreshTimer.interval = delayMs || 280;
+        delayedRefreshTimer.interval = delayMs || 220;
         delayedRefreshTimer.restart();
     }
 
     Process {
         id: queryProc
-        command: [
-            "bash", "-c",
-            "command -v wl-mirror >/dev/null 2>&1 && has_wlm=1 || has_wlm=0; " +
-            "wlm_cmd=$(ps -C wl-mirror -o args= 2>/dev/null | head -n 1); " +
-            "niri_json=$(niri msg -j outputs 2>/dev/null || echo '{}'); " +
-            "python3 -c 'import json, sys; " +
-            "has_wlm = sys.argv[1] == \"1\"; " +
-            "wlm_cmd = sys.argv[2].strip(); " +
-            "outputs = json.loads(sys.argv[3]); " +
-            "print(json.dumps({\"has_wlm\": has_wlm, \"wlm_cmd\": wlm_cmd, \"outputs\": outputs}))' " +
-            "\"$has_wlm\" \"$wlm_cmd\" \"$niri_json\""
-        ]
+        command: ["python3", root._scriptPath, "query"]
         running: true
         stdout: SplitParser {
             splitMarker: "\n"
@@ -171,179 +196,64 @@ Singleton {
                 if (!data || data.trim() === "") return;
                 try {
                     var payload = JSON.parse(data);
-                    root.parsePayload(payload);
+                    if (payload && payload.ok) {
+                        root._parseQueryPayload(payload);
+                    }
                 } catch (e) {
-                    console.warn("[DisplayService] Failed to parse outputs JSON:", e);
+                    console.warn("[DisplayService] Failed to parse query JSON:", e);
                 }
             }
         }
     }
 
-    function parsePayload(payload) {
+    function _parseQueryPayload(payload) {
         root.wlMirrorInstalled = !!payload.has_wlm;
-        var wlmCmd = payload.wlm_cmd || "";
-        var rawOutputs = payload.outputs || {};
+        var mir = payload.mirror || {};
+        root.isMirroring = !!mir.active;
+        root.mirrorSource = mir.source || "";
+        root.mirrorTarget = mir.target || "";
+        root.hasSavedProfile = !!payload.has_saved_profile;
+        root.topologyKey = payload.topology_key || "";
 
-        // Parse wl-mirror command if active: e.g. "wl-mirror --fullscreen-output HDMI-A-1 eDP-1"
-        if (wlmCmd !== "") {
-            root.isMirroring = true;
-            var parts = wlmCmd.split(/\s+/);
-            var tgt = "";
-            var src = "";
-            for (var p = 0; p < parts.length; p++) {
-                if ((parts[p] === "--fullscreen-output" || parts[p] === "-F") && p + 1 < parts.length) {
-                    tgt = parts[p + 1];
-                    p++;
-                } else if (parts[p].indexOf("-") !== 0 && parts[p].indexOf("wl-mirror") === -1) {
-                    src = parts[p];
-                }
-            }
-            root.mirrorTarget = tgt;
-            root.mirrorSource = src;
-        } else {
-            root.isMirroring = false;
-            root.mirrorTarget = "";
-            root.mirrorSource = "";
-        }
-
-        var list = [];
-        var keys = Object.keys(rawOutputs);
-
-        // Sort: internal (eDP-*) first, then alphabetical
-        keys.sort(function(a, b) {
-            var aInt = root.isInternalConnector(a);
-            var bInt = root.isInternalConnector(b);
-            if (aInt && !bInt) return -1;
-            if (!aInt && bInt) return 1;
-            return a.localeCompare(b);
-        });
-
-        for (var i = 0; i < keys.length; i++) {
-            var k = keys[i];
-            var o = rawOutputs[k];
-            if (!o) continue;
-
-            var logical = o.logical || null;
-            var enabled = (logical !== null);
-            var modes = Array.isArray(o.modes) ? o.modes : [];
-            var curIdx = (o.current_mode !== null && o.current_mode !== undefined) ? Number(o.current_mode) : -1;
-
-            // Pick active mode or preferred mode for physical resolution
-            var activeMode = (curIdx >= 0 && curIdx < modes.length) ? modes[curIdx] : null;
-            if (!activeMode && modes.length > 0) {
-                for (var m = 0; m < modes.length; m++) {
-                    if (modes[m].is_preferred) {
-                        activeMode = modes[m];
-                        break;
-                    }
-                }
-                if (!activeMode) activeMode = modes[0];
-            }
-
-            var physW = activeMode ? Number(activeMode.width) : 1920;
-            var physH = activeMode ? Number(activeMode.height) : 1080;
-            var refreshMhz = activeMode ? Number(activeMode.refresh_rate) : 60000;
-            var refreshHzStr = (refreshMhz / 1000.0).toFixed(3);
-            var refreshShort = Math.round(refreshMhz / 1000.0) + "Hz";
-
-            var scale = 1.0;
-            if (logical && logical.scale) {
-                scale = Number(logical.scale);
-                root._cachedScales[k] = scale;
-            } else if (root._cachedScales[k]) {
-                scale = root._cachedScales[k];
-            }
-
-            var transform = logical ? root.normalizeTransform(logical.transform) : "normal";
-            var rotated = (transform === "90" || transform === "270" || transform === "flipped-90" || transform === "flipped-270");
-
-            var logW = logical ? Number(logical.width) : Math.round((rotated ? physH : physW) / scale);
-            var logH = logical ? Number(logical.height) : Math.round((rotated ? physW : physH) / scale);
-            var logX = logical ? Number(logical.x) : 0;
-            var logY = logical ? Number(logical.y) : 0;
-
-            // Build deduplicated top modes list (up to 6 most useful modes)
-            var formattedModes = [];
-            var seenRes = {};
-            for (var mi = 0; mi < modes.length; mi++) {
-                var md = modes[mi];
-                var hz = (Number(md.refresh_rate) / 1000.0).toFixed(3);
-                var hzRound = Math.round(Number(md.refresh_rate) / 1000.0);
-                var modeCmd = md.width + "x" + md.height + "@" + hz;
-                var label = md.width + "×" + md.height + " @ " + hzRound + "Hz";
-                var keySig = md.width + "x" + md.height + "@" + hzRound;
-                if (!seenRes[keySig] && formattedModes.length < 8) {
-                    seenRes[keySig] = true;
-                    formattedModes.push({
-                        cmd: modeCmd,
-                        label: label,
-                        width: md.width,
-                        height: md.height,
-                        refreshHz: hzRound,
-                        isCurrent: (mi === curIdx),
-                        isPreferred: !!md.is_preferred
-                    });
-                }
-            }
-
-            var makeModel = [o.make || "", o.model || ""].join(" ").trim();
-            if (!makeModel) makeModel = root.isInternalConnector(k) ? "Built-in Display" : "External Monitor";
-
-            list.push({
-                name: k,
-                makeModel: makeModel,
-                isInternal: root.isInternalConnector(k),
-                enabled: enabled,
-                width: logW,
-                height: logH,
-                physicalWidth: physW,
-                physicalHeight: physH,
-                x: logX,
-                y: logY,
-                scale: scale,
-                transform: transform,
-                refreshRate: refreshShort,
-                modeCmd: physW + "x" + physH + "@" + refreshHzStr,
-                modes: formattedModes
-            });
-        }
-
+        var list = Array.isArray(payload.outputs) ? payload.outputs : [];
         root.outputs = list;
 
-        // Resolve primary and secondary output names
+        var keys = [];
+        for (var k = 0; k < list.length; k++) {
+            keys.push(list[k].name);
+        }
+
+        // Resolve primary: saved profile primary > config primary > current primary > first enabled
+        var savedPrimary = payload.saved_primary || "";
         var cfgPrimary = (Config.display && Config.display.primaryOutput) ? String(Config.display.primaryOutput) : "";
         var foundPrimary = "";
-        if (cfgPrimary !== "") {
-            for (var pi = 0; pi < list.length; pi++) {
-                if (list[pi].name === cfgPrimary) {
-                    foundPrimary = cfgPrimary;
+
+        var hasOutput = function(name) {
+            if (!name) return false;
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].name === name) return true;
+            }
+            return false;
+        };
+
+        if (hasOutput(savedPrimary)) foundPrimary = savedPrimary;
+        else if (hasOutput(cfgPrimary)) foundPrimary = cfgPrimary;
+        else if (hasOutput(root.primaryOutputName)) foundPrimary = root.primaryOutputName;
+        else if (list.length > 0) {
+            for (var e = 0; e < list.length; e++) {
+                if (list[e].enabled) {
+                    foundPrimary = list[e].name;
                     break;
                 }
             }
-        }
-        if (foundPrimary === "" && root.primaryOutputName !== "") {
-            for (var pj = 0; pj < list.length; pj++) {
-                if (list[pj].name === root.primaryOutputName) {
-                    foundPrimary = root.primaryOutputName;
-                    break;
-                }
-            }
-        }
-        if (foundPrimary === "" && list.length > 0) {
-            foundPrimary = list[0].name;
+            if (!foundPrimary) foundPrimary = list[0].name;
         }
         root.primaryOutputName = foundPrimary;
 
         var foundSecondary = "";
-        if (root.secondaryOutputName !== "" && root.secondaryOutputName !== foundPrimary) {
-            for (var si = 0; si < list.length; si++) {
-                if (list[si].name === root.secondaryOutputName) {
-                    foundSecondary = root.secondaryOutputName;
-                    break;
-                }
-            }
-        }
-        if (foundSecondary === "") {
+        if (root.secondaryOutputName !== "" && root.secondaryOutputName !== foundPrimary && hasOutput(root.secondaryOutputName)) {
+            foundSecondary = root.secondaryOutputName;
+        } else {
             for (var sj = 0; sj < list.length; sj++) {
                 if (list[sj].name !== foundPrimary) {
                     foundSecondary = list[sj].name;
@@ -352,30 +262,35 @@ Singleton {
             }
         }
         root.secondaryOutputName = foundSecondary;
-
-        // Infer current layout mode
         root.currentLayoutMode = root.inferLayoutMode(list, foundPrimary, foundSecondary);
+        root.outputsUpdated();
 
-        // Check for hotplugged new physical connectors
+        // Detect initial startup restore & physical topology changes (hotplug / unplug)
         if (!root._initialReadDone) {
             root._initialReadDone = true;
+            root._knownTopologyKey = root.topologyKey;
             root._knownConnectorNames = keys;
-        } else {
+            if (!root._initialRestoreTriggered && list.length > 0) {
+                root._initialRestoreTriggered = true;
+                root._pendingAddedConnectors = [];
+                root._triggerRestore();
+            }
+        } else if (root.topologyKey !== "" && root.topologyKey !== root._knownTopologyKey) {
             var added = [];
             for (var ki = 0; ki < keys.length; ki++) {
                 if (root._knownConnectorNames.indexOf(keys[ki]) === -1) {
                     added.push(keys[ki]);
                 }
             }
+            root._knownTopologyKey = root.topologyKey;
             root._knownConnectorNames = keys;
-            if (added.length > 0 && keys.length > 1) {
-                root.monitorHotplugged(added);
-            }
+            root._pendingAddedConnectors = (added.length > 0 && keys.length > 1) ? added : [];
+            root._triggerRestore();
         }
     }
 
     function inferLayoutMode(list, primName, secName) {
-        if (list.length <= 1) return "single";
+        if (!list || list.length <= 1) return "single";
         if (root.isMirroring) return "mirror";
 
         var prim = null;
@@ -408,7 +323,251 @@ Singleton {
         return "custom";
     }
 
-    // ── Primary / Secondary selection ──────────────────────────────
+    // ── Automatic Profile Restore on Startup / Hotplug ──────────────
+    Process {
+        id: restoreProc
+        property string _buf: ""
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: data => {
+                if (data && data.trim() !== "") restoreProc._buf = data.trim();
+            }
+        }
+        onExited: (exitCode, exitStatus) => {
+            root.isApplying = false;
+            var res = null;
+            try {
+                if (restoreProc._buf !== "") res = JSON.parse(restoreProc._buf);
+            } catch (e) {}
+            restoreProc._buf = "";
+
+            var added = root._pendingAddedConnectors;
+            root._pendingAddedConnectors = [];
+
+            if (res && res.matched) {
+                if (res.applied) {
+                    root.showFeedback("Restored saved display profile");
+                }
+                root.scheduleRefresh(180);
+            } else {
+                root.scheduleRefresh(180);
+                if (added && added.length > 0) {
+                    root.monitorHotplugged(added);
+                }
+            }
+        }
+    }
+
+    function _triggerRestore() {
+        if (restoreProc.running || root.isApplying) return;
+        root.isApplying = true;
+        restoreProc._buf = "";
+        restoreProc.exec(["python3", root._scriptPath, "restore"]);
+    }
+
+    // ── Snapshot Helper for Undo / Revert ───────────────────────────
+    function _captureSnapshot() {
+        var snapOutputs = [];
+        for (var i = 0; i < root.outputs.length; i++) {
+            var o = root.outputs[i];
+            snapOutputs.push({
+                name: o.name,
+                enabled: !!o.enabled,
+                mode: o.modeCmd || "",
+                scale: Number(o.scale || 1.0),
+                transform: o.transform || "normal",
+                x: Math.round(Number(o.x || 0)),
+                y: Math.round(Number(o.y || 0))
+            });
+        }
+        return {
+            outputs: snapOutputs,
+            primary: root.primaryOutputName,
+            mirror: {
+                enabled: root.isMirroring,
+                source: root.mirrorSource,
+                target: root.mirrorTarget
+            }
+        };
+    }
+
+    // ── Apply Full Display Configuration (from Interactive Panel) ───
+    Process {
+        id: applyProc
+        property string _buf: ""
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: data => {
+                if (data && data.trim() !== "") applyProc._buf = data.trim();
+            }
+        }
+        onExited: (exitCode, exitStatus) => {
+            root.isApplying = false;
+            var res = null;
+            try {
+                if (applyProc._buf !== "") res = JSON.parse(applyProc._buf);
+            } catch (e) {}
+            applyProc._buf = "";
+
+            var ok = (exitCode === 0 && (!res || res.ok !== false));
+            if (ok) {
+                if (root._lastApplyWasRevert) {
+                    root.pendingConfirmation = false;
+                    root.confirmationSecondsLeft = 0;
+                    root._pendingCommitPayload = null;
+                    root.canUndo = false;
+                    root._previousSnapshot = null;
+                    root.showFeedback("Restored previous display settings");
+                } else if (root._lastApplyWasRisky) {
+                    root.pendingConfirmation = true;
+                    root.confirmationSecondsLeft = 15;
+                    root.canUndo = false;
+                    root.showFeedback("Confirm new display settings");
+                } else {
+                    root.pendingConfirmation = false;
+                    root.confirmationSecondsLeft = 0;
+                    root._pendingCommitPayload = null;
+                    root.canUndo = (root._previousSnapshot !== null);
+                    if (root.canUndo) undoExpireTimer.restart();
+                    root.showFeedback("Display layout applied & saved");
+                }
+            } else {
+                root.pendingConfirmation = false;
+                root.showFeedback("Failed to apply display layout");
+            }
+            root._lastApplyWasRisky = false;
+            root._lastApplyWasRevert = false;
+            root.applyFinished(ok);
+            root.scheduleRefresh(160);
+        }
+    }
+
+    function applyConfiguration(outputsList, primaryName, mirrorCfg, riskyChange) {
+        if (root.isApplying || !outputsList || outputsList.length === 0) return;
+
+        root._previousSnapshot = root._captureSnapshot();
+        root._lastApplyWasRisky = !!riskyChange;
+        root._lastApplyWasRevert = false;
+
+        var cleanOutputs = [];
+        for (var i = 0; i < outputsList.length; i++) {
+            var o = outputsList[i];
+            cleanOutputs.push({
+                name: o.name,
+                enabled: !!o.enabled,
+                mode: o.modeCmd || o.mode || "",
+                scale: Number(o.scale || 1.0),
+                transform: o.transform || "normal",
+                x: Math.round(Number(o.x || 0)),
+                y: Math.round(Number(o.y || 0))
+            });
+        }
+
+        var effPrimary = primaryName || root.primaryOutputName || cleanOutputs[0].name;
+        var mirObj = {
+            enabled: !!(mirrorCfg && mirrorCfg.enabled),
+            source: (mirrorCfg && mirrorCfg.source) ? mirrorCfg.source : effPrimary,
+            target: (mirrorCfg && mirrorCfg.target) ? mirrorCfg.target : ""
+        };
+
+        var payload = {
+            outputs: cleanOutputs,
+            primary: effPrimary,
+            mirror: mirObj,
+            persist: !riskyChange,
+            keep_focus: root.activeScreenName || ""
+        };
+
+        if (riskyChange) {
+            root._pendingCommitPayload = Object.assign({}, payload, { persist: true });
+        } else {
+            root._pendingCommitPayload = null;
+            Config.set("display.primaryOutput", effPrimary);
+        }
+
+        root.isApplying = true;
+        applyProc._buf = "";
+        applyProc.exec(["python3", root._scriptPath, "apply", "--payload", JSON.stringify(payload)]);
+    }
+
+    function keepPendingChanges() {
+        if (!root.pendingConfirmation) return;
+        confirmCountdownTimer.stop();
+        root.pendingConfirmation = false;
+        root.confirmationSecondsLeft = 0;
+
+        var commitPayload = root._pendingCommitPayload;
+        root._pendingCommitPayload = null;
+        if (commitPayload && commitPayload.primary) {
+            Config.set("display.primaryOutput", commitPayload.primary);
+        }
+
+        saveProc._buf = "";
+        saveProc.exec([
+            "python3", root._scriptPath, "save-current",
+            "--primary", (commitPayload && commitPayload.primary) ? commitPayload.primary : root.primaryOutputName
+        ]);
+        root.canUndo = (root._previousSnapshot !== null);
+        if (root.canUndo) undoExpireTimer.restart();
+    }
+
+    function revertChanges() {
+        confirmCountdownTimer.stop();
+        undoExpireTimer.stop();
+        if (!root._previousSnapshot || root.isApplying) {
+            root.pendingConfirmation = false;
+            root.canUndo = false;
+            return;
+        }
+        var snap = root._previousSnapshot;
+        var payload = {
+            outputs: snap.outputs,
+            primary: snap.primary || "",
+            mirror: snap.mirror || { enabled: false, source: "", target: "" },
+            persist: !root.pendingConfirmation,
+            keep_focus: root.activeScreenName || ""
+        };
+        root._lastApplyWasRevert = true;
+        root._lastApplyWasRisky = false;
+        root.isApplying = true;
+        applyProc._buf = "";
+        applyProc.exec(["python3", root._scriptPath, "apply", "--payload", JSON.stringify(payload)]);
+    }
+
+    // ── Quick Presets (IPC, DisplayWidget right-click, ControlCenter Clone/Extend) ──
+    function applyLayout(mode) {
+        if (root.isApplying) return;
+        root._previousSnapshot = root._captureSnapshot();
+        root._lastApplyWasRisky = false;
+        root._lastApplyWasRevert = false;
+
+        var prim = root.primaryOutputName || (root.outputs.length > 0 ? root.outputs[0].name : "");
+        var sec = root.secondaryOutputName || (root.outputs.length > 1 ? root.outputs[1].name : "");
+        Config.set("display.lastLayoutMode", mode);
+
+        var cmd = [
+            "python3", root._scriptPath, "apply-preset", mode,
+            "--primary", prim,
+            "--secondary", sec
+        ];
+        if (root.activeScreenName !== "") {
+            cmd.push("--keep-focus", root.activeScreenName);
+        }
+
+        root.isApplying = true;
+        applyProc._buf = "";
+        applyProc.exec(cmd);
+    }
+
+    function cycleLayoutMode() {
+        if (!root.hasMultipleMonitors) return "single";
+        var order = ["extend-right", "extend-left", "mirror", "primary-only", "secondary-only"];
+        var idx = order.indexOf(root.currentLayoutMode);
+        var next = order[(idx + 1) % order.length];
+        root.applyLayout(next);
+        return next;
+    }
+
     function setPrimaryOutput(name) {
         if (!name || name === root.primaryOutputName) return;
         var prevPrimary = root.primaryOutputName;
@@ -430,201 +589,38 @@ Singleton {
         if (root.currentLayoutMode !== "single" && root.currentLayoutMode !== "custom") {
             root.applyLayout(root.currentLayoutMode);
         } else {
-            root.refresh();
+            root.saveToNiriConfig();
         }
     }
 
-    // ── Apply multi-monitor layout mode ────────────────────────────
+    // ── Explicit Save Current State ─────────────────────────────────
     Process {
-        id: applyProc
-        onExited: (exitCode, exitStatus) => {
-            root.scheduleRefresh(180);
-        }
-    }
-
-    function applyLayout(mode) {
-        if (root.outputs.length < 2) {
-            if (root.outputs.length === 1) {
-                applyProc.exec(["niri", "msg", "output", root.outputs[0].name, "on"]);
+        id: saveProc
+        property string _buf: ""
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: data => {
+                if (data && data.trim() !== "") saveProc._buf = data.trim();
             }
-            return;
         }
-
-        var prim = root.primaryOutputName || root.outputs[0].name;
-        var sec = root.secondaryOutputName || root.outputs[1].name;
-
-        Config.set("display.lastLayoutMode", mode);
-
-        // Python helper executes atomically:
-        // 1. Stops wl-mirror if running
-        // 2. Powers on/off outputs as requested
-        // 3. Queries fresh `niri msg -j outputs` so logical sizes are exact even if an output was off
-        // 4. Sets exact logical positions for primary, secondary, and any extra monitors
-        // 5. Starts wl-mirror if mode == "mirror"
-        var script = [
-            "import json, subprocess, time, sys",
-            "mode, prim, sec = sys.argv[1], sys.argv[2], sys.argv[3]",
-            "subprocess.run(['pkill', '-x', 'wl-mirror'], stderr=subprocess.DEVNULL)",
-            "def niri_out(*args):",
-            "    subprocess.run(['niri', 'msg', 'output', *args], stderr=subprocess.DEVNULL)",
-            "if mode == 'primary-only':",
-            "    niri_out(prim, 'on')",
-            "    niri_out(prim, 'position', 'set', '0', '0')",
-            "    niri_out(sec, 'off')",
-            "    sys.exit(0)",
-            "if mode == 'secondary-only':",
-            "    niri_out(sec, 'on')",
-            "    niri_out(sec, 'position', 'set', '0', '0')",
-            "    niri_out(prim, 'off')",
-            "    sys.exit(0)",
-            "niri_out(prim, 'on')",
-            "niri_out(sec, 'on')",
-            "time.sleep(0.12)",
-            "raw = subprocess.check_output(['niri', 'msg', '-j', 'outputs'], text=True)",
-            "data = json.loads(raw)",
-            "def get_size(name):",
-            "    o = data.get(name, {})",
-            "    log = o.get('logical')",
-            "    if log:",
-            "        return int(log.get('width', 1920)), int(log.get('height', 1080))",
-            "    modes = o.get('modes') or []",
-            "    if modes:",
-            "        return int(modes[0].get('width', 1920)), int(modes[0].get('height', 1080))",
-            "    return 1920, 1080",
-            "pw, ph = get_size(prim)",
-            "sw, sh = get_size(sec)",
-            "if mode == 'extend-right':",
-            "    niri_out(prim, 'position', 'set', '0', '0')",
-            "    niri_out(sec, 'position', 'set', str(pw), '0')",
-            "    cur_x = pw + sw",
-            "elif mode == 'extend-left':",
-            "    niri_out(sec, 'position', 'set', '0', '0')",
-            "    niri_out(prim, 'position', 'set', str(sw), '0')",
-            "    cur_x = sw + pw",
-            "elif mode == 'extend-above':",
-            "    niri_out(sec, 'position', 'set', '0', '0')",
-            "    niri_out(prim, 'position', 'set', '0', str(sh))",
-            "    cur_x = max(pw, sw)",
-            "elif mode == 'extend-below':",
-            "    niri_out(prim, 'position', 'set', '0', '0')",
-            "    niri_out(sec, 'position', 'set', '0', str(ph))",
-            "    cur_x = max(pw, sw)",
-            "elif mode == 'mirror':",
-            "    niri_out(prim, 'position', 'set', '0', '0')",
-            "    niri_out(sec, 'position', 'set', str(pw), str(ph))",
-            "    cur_x = pw + sw",
-            "    subprocess.Popen(['wl-mirror', '--fullscreen-output', sec, prim], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)",
-            "else:",
-            "    niri_out(prim, 'position', 'auto')",
-            "    niri_out(sec, 'position', 'auto')",
-            "    cur_x = pw + sw",
-            "for k in data.keys():",
-            "    if k not in (prim, sec):",
-            "        niri_out(k, 'on')",
-            "        kw, _ = get_size(k)",
-            "        niri_out(k, 'position', 'set', str(cur_x), '0')",
-            "        cur_x += kw",
-            "subprocess.Popen(['nirakase-wallpaper', '--sync-current'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)"
-        ].join("\n");
-
-        applyProc.exec(["python3", "-c", script, mode, prim, sec]);
-
-        var modeNames = {
-            "extend-right": "Extend Right applied",
-            "extend-left": "Extend Left applied",
-            "extend-above": "Extend Above applied",
-            "extend-below": "Extend Below applied",
-            "mirror": root.wlMirrorInstalled ? ("Mirroring " + prim + " ➔ " + sec) : "Install wl-mirror for screen cloning",
-            "primary-only": "Primary monitor only (" + prim + ")",
-            "secondary-only": "External monitor only (" + sec + ")"
-        };
-        root.showFeedback(modeNames[mode] || "Display layout updated");
-    }
-
-    function cycleLayoutMode() {
-        if (!root.hasMultipleMonitors) return "single";
-        var order = ["extend-right", "extend-left", "mirror", "primary-only", "secondary-only"];
-        var idx = order.indexOf(root.currentLayoutMode);
-        var next = order[(idx + 1) % order.length];
-        root.applyLayout(next);
-        return next;
-    }
-
-    // ── Per-monitor settings ───────────────────────────────────────
-    function setOutputEnabled(name, enable) {
-        if (!enable && root.activeOutputCount <= 1) {
-            root.showFeedback("Cannot disable the last active monitor");
-            return;
-        }
-        if (!enable && root.isMirroring && (name === root.mirrorSource || name === root.mirrorTarget)) {
-            Quickshell.execDetached(["pkill", "-x", "wl-mirror"]);
-        }
-        applyProc.exec(["niri", "msg", "output", name, enable ? "on" : "off"]);
-        root.showFeedback(name + (enable ? " enabled" : " disabled"));
-    }
-
-    function setOutputScale(name, scaleVal) {
-        var s = String(scaleVal);
-        root._cachedScales[name] = Number(scaleVal);
-        // Apply scale and re-align layout if extending
-        applyProc.exec(["niri", "msg", "output", name, "scale", s]);
-        root.showFeedback(name + " scale set to " + Math.round(Number(scaleVal) * 100) + "%");
-    }
-
-    function setOutputTransform(name, transformStr) {
-        applyProc.exec(["niri", "msg", "output", name, "transform", transformStr]);
-        root.showFeedback(name + " rotation: " + transformStr);
-    }
-
-    function setOutputMode(name, modeCmd) {
-        applyProc.exec(["niri", "msg", "output", name, "mode", modeCmd]);
-        root.showFeedback(name + " mode: " + modeCmd);
-    }
-
-    // ── Persist current output configuration into ~/.config/niri/config.d/outputs.kdl ──
-    Process {
-        id: saveKdlProc
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 0) {
-                root.showFeedback("Saved permanently to outputs.kdl");
+                root.hasSavedProfile = true;
+                root.showFeedback("Display profile saved");
+                root.scheduleRefresh(140);
             } else {
-                root.showFeedback("Failed to write outputs.kdl");
+                root.showFeedback("Failed to save display profile");
             }
+            saveProc._buf = "";
         }
     }
 
     function saveToNiriConfig() {
-        var kdlLines = [
-            "// --- Nirakase: Monitor & Output Configuration ---",
-            "// Generated by Nirakase Display Manager (Quickshell).",
-            "// Run `niri msg outputs` to inspect connector names and modes.",
-            ""
-        ];
-
-        for (var i = 0; i < root.outputs.length; i++) {
-            var o = root.outputs[i];
-            kdlLines.push('output "' + o.name + '" {');
-            if (!o.enabled) {
-                kdlLines.push('    off');
-            } else {
-                if (o.modeCmd) {
-                    kdlLines.push('    mode "' + o.modeCmd + '"');
-                }
-                kdlLines.push('    scale ' + o.scale);
-                kdlLines.push('    transform "' + (o.transform || "normal") + '"');
-                kdlLines.push('    position x=' + o.x + ' y=' + o.y);
-            }
-            kdlLines.push('}');
-            kdlLines.push('');
-        }
-
-        var content = kdlLines.join("\n");
-        var targetPath = Quickshell.env("HOME") + "/.config/niri/config.d/outputs.kdl";
-
-        saveKdlProc.exec([
-            "python3", "-c",
-            "import sys, pathlib; p = pathlib.Path(sys.argv[1]).resolve(); p.write_text(sys.argv[2], encoding='utf-8')",
-            targetPath, content
+        if (saveProc.running) return;
+        saveProc._buf = "";
+        saveProc.exec([
+            "python3", root._scriptPath, "save-current",
+            "--primary", root.primaryOutputName || ""
         ]);
     }
 }

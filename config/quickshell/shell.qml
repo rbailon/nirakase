@@ -16,12 +16,98 @@ ShellRoot {
     property var niriWorkspaces: []
     property var niriWindows: ({})
 
+    // Lifted island display mode so active modals survive monitor changes
+    // 0 = Bar, 1 = OSD, 2 = Themes, 3 = ControlCenter, 4 = PowerMenu, 5 = Launcher, 6 = Auth
+    property int activeIslandMode: 0
+    property int previousIslandMode: 0
+    readonly property bool hasActiveModal: activeIslandMode >= 2 && activeIslandMode <= 6
+    property bool trayMenuOpen: false
+    property string lockedScreenName: ""
+
+    Timer {
+        id: displaySettleTimer
+        interval: 650
+        repeat: false
+        onTriggered: {
+            if (!root.hasActiveModal && !root.trayMenuOpen && !DisplayService.isApplying) {
+                root.lockedScreenName = "";
+            }
+        }
+    }
+
+    function _hasScreenName(name) {
+        if (!name) return false;
+        var screens = Quickshell.screens;
+        if (!screens) return false;
+        for (var i = 0; i < screens.length; i++) {
+            if (screens[i] && screens[i].name === name) return true;
+        }
+        return false;
+    }
+
+    function _syncScreenLock() {
+        var shouldLock = root.hasActiveModal || root.trayMenuOpen || DisplayService.isApplying || displaySettleTimer.running;
+        if (shouldLock) {
+            if (root.lockedScreenName === "" || !root._hasScreenName(root.lockedScreenName)) {
+                root.lockedScreenName = root.effectiveOutputName;
+            }
+        } else {
+            root.lockedScreenName = "";
+        }
+    }
+
+    function setIslandMode(mode) {
+        if (mode === root.activeIslandMode) return;
+        var wasControlCenter = (root.activeIslandMode === 3);
+        // Pin screen BEFORE entering modal so the panel stays anchored on the active monitor
+        if (mode >= 2 && mode <= 6 && root.lockedScreenName === "") {
+            root.lockedScreenName = root.effectiveOutputName;
+        }
+        root.activeIslandMode = mode;
+        if (wasControlCenter && mode !== 3) {
+            NetworkService.setWifiScanner(false);
+            NetworkService.wifiPanelOpen = false;
+            BluetoothService.setDiscovering(false);
+            BluetoothService.btPanelOpen = false;
+            AudioService.audioPanelOpen = false;
+            IdleService.idlePanelOpen = false;
+            DisplayService.displayPanelOpen = false;
+        }
+        root._syncScreenLock();
+    }
+
+    onTrayMenuOpenChanged: root._syncScreenLock()
+
+    readonly property string effectiveOutputName: {
+        var screens = Quickshell.screens;
+        if (!screens || screens.length === 0) return "";
+        var lockActive = root.hasActiveModal || root.trayMenuOpen || DisplayService.isApplying || displaySettleTimer.running;
+        if (lockActive && root._hasScreenName(root.lockedScreenName)) {
+            return root.lockedScreenName;
+        }
+        if (root._hasScreenName(root.focusedOutputName)) {
+            return root.focusedOutputName;
+        }
+        if (root._hasScreenName(DisplayService.primaryOutputName)) {
+            return DisplayService.primaryOutputName;
+        }
+        return screens[0].name;
+    }
+
+    onEffectiveOutputNameChanged: {
+        DisplayService.activeScreenName = root.effectiveOutputName;
+        if ((root.hasActiveModal || root.trayMenuOpen || DisplayService.isApplying) && root.effectiveOutputName !== "") {
+            root.lockedScreenName = root.effectiveOutputName;
+        }
+    }
+
     readonly property var targetScreen: {
         var screens = Quickshell.screens;
         if (!screens || screens.length === 0) return null;
-        if (root.focusedOutputName !== "") {
+        var name = root.effectiveOutputName;
+        if (name !== "") {
             for (var i = 0; i < screens.length; i++) {
-                if (screens[i].name === root.focusedOutputName) return screens[i];
+                if (screens[i] && screens[i].name === name) return screens[i];
             }
         }
         return screens[0];
@@ -118,6 +204,7 @@ ShellRoot {
 
     Component.onCompleted: {
         root.knownScreenNames = root.currentScreenNames();
+        DisplayService.activeScreenName = root.effectiveOutputName;
     }
 
     Timer {
@@ -144,6 +231,7 @@ ShellRoot {
                 }
             }
             root.knownScreenNames = current;
+            root._syncScreenLock();
             DisplayService.scheduleRefresh(180);
             if (added.length > 0) {
                 var pending = root.pendingWallpaperOutputs.slice();
@@ -160,15 +248,22 @@ ShellRoot {
 
     Connections {
         target: DisplayService
+        function onIsApplyingChanged() {
+            if (DisplayService.isApplying) {
+                displaySettleTimer.stop();
+                root._syncScreenLock();
+            } else {
+                displaySettleTimer.restart();
+            }
+        }
         function onMonitorHotplugged(addedOutputs) {
-            if (!DisplayService.autoPromptOnHotplug || !root.activePanel) return;
-            var p = root.activePanel;
+            if (!DisplayService.autoPromptOnHotplug) return;
             NetworkService.wifiPanelOpen = false;
             BluetoothService.btPanelOpen = false;
             AudioService.audioPanelOpen = false;
             IdleService.idlePanelOpen = false;
             DisplayService.displayPanelOpen = true;
-            p.islandPill.currentMode = 3;
+            root.setIslandMode(3);
         }
     }
 
@@ -181,17 +276,21 @@ ShellRoot {
         function toggleBar() {
             if (!root.activePanel) return;
             var p = root.activePanel;
-            p.islandPill.currentMode === 0 ? p.rowBar.longBar ? p.rowBar.longBar = false : p.rowBar.longBar = true : p.islandPill.currentMode = 0
-            Config.set("bar.longbar", p.rowBar.longBar)
+            if (root.activeIslandMode === 0) {
+                p.rowBar.longBar = !p.rowBar.longBar;
+            } else {
+                root.setIslandMode(0);
+            }
+            Config.set("bar.longbar", p.rowBar.longBar);
         }
 
         function themes() {
             if (!root.activePanel) return;
             var p = root.activePanel;
-            if (p.islandPill.currentMode === 2) {
+            if (root.activeIslandMode === 2) {
                 p.closeThemes();
             } else {
-                p.islandPill.currentMode = 2;
+                root.setIslandMode(2);
             }
         }
 
@@ -200,24 +299,19 @@ ShellRoot {
         }
 
         function controlCenter() {
-            if (!root.activePanel) return;
-            var p = root.activePanel;
-            p.islandPill.currentMode === 3 ? p.islandPill.currentMode = 0 : p.islandPill.currentMode = 3;
+            root.setIslandMode(root.activeIslandMode === 3 ? 0 : 3);
         }
 
         function displays() {
-            if (!root.activePanel) return;
-            var p = root.activePanel;
-            if (p.islandPill.currentMode === 3 && DisplayService.displayPanelOpen) {
-                DisplayService.displayPanelOpen = false;
-                p.islandPill.currentMode = 0;
+            if (root.activeIslandMode === 3 && DisplayService.displayPanelOpen) {
+                root.setIslandMode(0);
             } else {
                 NetworkService.wifiPanelOpen = false;
                 BluetoothService.btPanelOpen = false;
                 AudioService.audioPanelOpen = false;
                 IdleService.idlePanelOpen = false;
                 DisplayService.displayPanelOpen = true;
-                p.islandPill.currentMode = 3;
+                root.setIslandMode(3);
             }
         }
 
@@ -232,10 +326,10 @@ ShellRoot {
         function power() {
             if (!root.activePanel) return;
             var p = root.activePanel;
-            if (p.islandPill.currentMode === 4) {
+            if (root.activeIslandMode === 4) {
                 p.closePowerMenu();
             } else {
-                p.islandPill.currentMode = 4;
+                root.setIslandMode(4);
             }
         }
 
@@ -246,17 +340,17 @@ ShellRoot {
         function launcher() {
             if (!root.activePanel) return;
             var p = root.activePanel;
-            p.islandPill.currentMode === 5 ? p.closeLauncher() : p.islandPill.currentMode = 5;
+            root.activeIslandMode === 5 ? p.closeLauncher() : root.setIslandMode(5);
         }
 
         function auth() {
             if (!root.activePanel) return;
             var p = root.activePanel;
-            if (p.islandPill.currentMode === 6) {
+            if (root.activeIslandMode === 6) {
                 p.closeAuth();
             } else {
-                p.islandPill.previousMode = p.islandPill.currentMode;
-                p.islandPill.currentMode = 6;
+                root.previousIslandMode = root.activeIslandMode;
+                root.setIslandMode(6);
             }
         }
 
@@ -288,8 +382,8 @@ ShellRoot {
         interval: 1800
         repeat: false
         onTriggered: {
-            if (root.activePanel && root.activePanel.islandPill.currentMode === 1) {
-                root.activePanel.islandPill.currentMode = root.activePanel.islandPill.previousMode;
+            if (root.activeIslandMode === 1) {
+                root.setIslandMode(root.previousIslandMode);
             }
         }
     }
@@ -297,11 +391,9 @@ ShellRoot {
     Connections {
         target: OsdService
         function onOsdTriggered() {
-            if (!root.activePanel) return;
-            var pill = root.activePanel.islandPill;
-            if (pill.currentMode !== 1) {
-                pill.previousMode = pill.currentMode;
-                pill.currentMode = 1;
+            if (root.activeIslandMode !== 1) {
+                root.previousIslandMode = root.activeIslandMode;
+                root.setIslandMode(1);
             }
             osdTimer.restart();
         }
@@ -310,18 +402,14 @@ ShellRoot {
     Connections {
         target: PolkitService
         function onAuthRequested() {
-            if (!root.activePanel) return;
-            var pill = root.activePanel.islandPill;
-            if (pill.currentMode !== 6) {
-                pill.previousMode = pill.currentMode;
-                pill.currentMode = 6;
+            if (root.activeIslandMode !== 6) {
+                root.previousIslandMode = root.activeIslandMode;
+                root.setIslandMode(6);
             }
         }
         function onAuthCompleted(success) {
-            if (!root.activePanel) return;
-            var pill = root.activePanel.islandPill;
-            if (pill.currentMode === 6) {
-                pill.currentMode = (pill.previousMode === 6) ? 0 : pill.previousMode;
+            if (root.activeIslandMode === 6) {
+                root.setIslandMode((root.previousIslandMode === 6) ? 0 : root.previousIslandMode);
             }
         }
     }
@@ -343,14 +431,32 @@ ShellRoot {
 
             Component.onCompleted: {
                 root.activePanel = panelBase;
+                root.trayMenuOpen = panelBase.isTrayMenuOpen;
                 panelBase.updateActiveWorkspaceForScreen();
+                if (panelBase.isModal) {
+                    Qt.callLater(panelBase.focusActiveModalWidget);
+                }
             }
-            Component.onDestruction: if (root.activePanel === panelBase) root.activePanel = null
+            Component.onDestruction: {
+                if (root.activePanel === panelBase) {
+                    root.activePanel = null;
+                    root.trayMenuOpen = false;
+                }
+            }
         WlrLayershell.layer: (panelBase.modalWindowActive || panelBase.isTrayMenuOpen || islandPill.currentMode === 1) ? WlrLayershell.Overlay : WlrLayershell.Top
 
         readonly property bool isModal: (islandPill.currentMode === 2 || islandPill.currentMode === 3 || islandPill.currentMode === 4 || islandPill.currentMode === 5 || islandPill.currentMode === 6)
         readonly property bool isTrayMenuOpen: systemTrayWidget.menuOpen
+        onIsTrayMenuOpenChanged: root.trayMenuOpen = panelBase.isTrayMenuOpen
         property bool modalWindowActive: isModal
+
+        function focusActiveModalWidget() {
+            if (islandPill.currentMode === 2) themesWidget.forceActiveFocus();
+            else if (islandPill.currentMode === 3) controlCenterWidget.forceActiveFocus();
+            else if (islandPill.currentMode === 4) powerMenuWidget.forceActiveFocus();
+            else if (islandPill.currentMode === 5) launcherWidget.forceActiveFocus();
+            else if (islandPill.currentMode === 6) authWidget.forceActiveFocus();
+        }
 
         // Floating window overlap state per pill
         property var focusedWorkspaceId: null
@@ -492,32 +598,33 @@ ShellRoot {
         }
 
         function closeThemes() {  
-            islandPill.currentMode = 0;
+            root.setIslandMode(0);
         }
 
         function closeControlCenter() {
-            islandPill.currentMode = 0;
+            root.setIslandMode(0);
         }
 
         function closePowerMenu() {
-            islandPill.currentMode = 0;
+            root.setIslandMode(0);
         }
 
         function closeLauncher() {
             if (launcherWidget) {
                 launcherWidget.prepareClose();
             }
-            islandPill.currentMode = 0;
+            root.setIslandMode(0);
         }
 
         function closeAuth() {
             if (PolkitService.isActive) {
                 PolkitService.cancel();
             }
-            islandPill.currentMode = (islandPill.previousMode === 6) ? 0 : islandPill.previousMode;
+            root.setIslandMode((root.previousIslandMode === 6) ? 0 : root.previousIslandMode);
         }
 
         function dismissActiveModal() {
+            if (DisplayService.isApplying) return;
             if (systemTrayWidget.menuOpen) {
                 systemTrayWidget.closeMenu();
             }
@@ -547,8 +654,7 @@ ShellRoot {
             }
 
             // Display modes: 0 = Bar, 1 = OSD, 2 = Themes, 3 = ControlCenter, 4 = PowerMenu, 5 = Launcher, 6 = Auth
-            property int currentMode: 0
-            property int previousMode: 0
+            readonly property int currentMode: root.activeIslandMode
 
             // Internal padding
             property int horizontalPadding: 14
@@ -560,13 +666,7 @@ ShellRoot {
             // Strict clipping to maintain island pill boundary
             clip: true
 
-            onCurrentModeChanged: {
-                if (currentMode === 2) themesWidget.forceActiveFocus();
-                else if (currentMode === 3) controlCenterWidget.forceActiveFocus();
-                else if (currentMode === 4) powerMenuWidget.forceActiveFocus();
-                else if (currentMode === 5) launcherWidget.forceActiveFocus();
-                else if (currentMode === 6) authWidget.forceActiveFocus();
-            }
+            onCurrentModeChanged: panelBase.focusActiveModalWidget()
 
             readonly property real targetContentWidth: {
                 var w = 0;
@@ -622,7 +722,7 @@ ShellRoot {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: mouse => {
                     if (mouse.button === Qt.RightButton && islandPill.currentMode === 0) {
-                        islandPill.currentMode = 3;
+                        root.setIslandMode(3);
                     }
                 }
                 onDoubleClicked: mouse => {
@@ -684,7 +784,7 @@ ShellRoot {
                                         if (islandPill.currentMode === 3 && !IdleService.idlePanelOpen) {
                                             panelBase.closeControlCenter();
                                         } else {
-                                            islandPill.currentMode = 3;
+                                            root.setIslandMode(3);
                                         }
                                     }
                                 }
@@ -693,13 +793,13 @@ ShellRoot {
                                         if (islandPill.currentMode === 3 && !DisplayService.displayPanelOpen) {
                                             panelBase.closeControlCenter();
                                         } else {
-                                            islandPill.currentMode = 3;
+                                            root.setIslandMode(3);
                                         }
                                     }
                                 }
                                 UpdatesWidget { id: updatesWidget }
                                 NotificationsWidget {
-                                    onOpenRequested: islandPill.currentMode === 3 ? islandPill.currentMode = 0 : islandPill.currentMode = 3
+                                    onOpenRequested: root.setIslandMode(islandPill.currentMode === 3 ? 0 : 3)
                                 }
                             }
                         }
@@ -717,7 +817,7 @@ ShellRoot {
                                         if (islandPill.currentMode === 3 && !BluetoothService.btPanelOpen) {
                                             panelBase.closeControlCenter();
                                         } else {
-                                            islandPill.currentMode = 3;
+                                            root.setIslandMode(3);
                                         }
                                     }
                                 }
@@ -728,7 +828,7 @@ ShellRoot {
                                         AudioService.audioPanelOpen = false;
                                         IdleService.idlePanelOpen = false;
                                         DisplayService.displayPanelOpen = false;
-                                        islandPill.currentMode = 3;
+                                        root.setIslandMode(3);
                                     }
                                 }
                                 AudioWidget {
@@ -739,7 +839,7 @@ ShellRoot {
                                         if (islandPill.currentMode === 3 && !AudioService.audioPanelOpen) {
                                             panelBase.closeControlCenter();
                                         } else {
-                                            islandPill.currentMode = 3;
+                                            root.setIslandMode(3);
                                         }
                                     }
                                 }
@@ -978,7 +1078,7 @@ ShellRoot {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: mouse => {
                     if (mouse.button === Qt.LeftButton) {
-                        islandPill.currentMode === 3 ? panelBase.closeControlCenter() : islandPill.currentMode = 3;
+                        islandPill.currentMode === 3 ? panelBase.closeControlCenter() : root.setIslandMode(3);
                     } else if (mouse.button === Qt.RightButton) {
                         OsdService.powerProfileCycle();
                     }
@@ -991,7 +1091,7 @@ ShellRoot {
                 anchors.rightMargin: pillRight.radius + pillRight.horizontalPadding
                 anchors.verticalCenter: parent.verticalCenter
 
-                onClicked: islandPill.currentMode === 3 ? panelBase.closeControlCenter() : islandPill.currentMode = 3
+                onClicked: islandPill.currentMode === 3 ? panelBase.closeControlCenter() : root.setIslandMode(3)
             }
         }
     }
@@ -1016,12 +1116,12 @@ ShellRoot {
             color: "transparent"
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.layer: WlrLayershell.Overlay
-            WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+            WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
             MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.AllButtons
-                onPressed: if (root.activePanel) root.activePanel.dismissActiveModal()
+                onPressed: if (root.activePanel && !DisplayService.isApplying) root.activePanel.dismissActiveModal()
             }
 
             Item {
