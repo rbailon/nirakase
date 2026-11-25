@@ -33,6 +33,13 @@ Item {
             "autoPromptOnHotplug": true,
             "lastLayoutMode": "extend-right",
             "primaryOutput": ""
+        },
+        "notifications": {
+            "dnd": false,
+            "soundEnabled": true,
+            "soundFile": "",
+            "soundName": "message-new-instant",
+            "criticalSoundName": "dialog-warning"
         }
     })
 
@@ -103,6 +110,7 @@ Item {
     readonly property var clock: values.clock
     readonly property var idle: values.idle
     readonly property var display: values.display
+    readonly property var notifications: values.notifications
 
     function set(keyPath, newValue) {
         var current = JSON.parse(JSON.stringify(root.values));

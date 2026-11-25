@@ -839,135 +839,92 @@ FocusScope {
             }
         }
 
-        // ================= QUICK ACTIONS (DO NOT DISTURB + IDLE) =================
-        RowLayout {
+        // ================= QUICK ACTION (IDLE / CAFFEINE) =================
+        // Automatic Idle (Caffeine Mode) + Timeout configuration button
+        Rectangle {
             Layout.fillWidth: true
-            spacing: 8
+            implicitHeight: 30
+            radius: 8
+            color: IdleService.inhibited ? Theme.surfaceActive : (idleMouse.containsMouse ? Theme.surfaceHover : Theme.surface)
+            border.color: IdleService.inhibited ? Theme.warning : Theme.border
+            border.width: IdleService.inhibited ? 2 : 1
 
-            // Do Not Disturb (DND) button
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 30
-                radius: 8
-                color: NotificationService.dnd ? Theme.surfaceActive : (dndMouse.containsMouse ? Theme.surfaceHover : Theme.surface)
-                border.color: NotificationService.dnd ? Theme.danger : Theme.border
-                border.width: NotificationService.dnd ? 2 : 1
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 6
+                spacing: 6
 
-                RowLayout {
-                    anchors.centerIn: parent
-                    spacing: 6
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
-                    Text {
-                        text: NotificationService.dnd ? "󰂛" : "󰂚"
-                        font.family: "JetBrainsMono Nerd Font Propo"
-                        font.pixelSize: 12
-                        color: NotificationService.dnd ? Theme.danger : Theme.textSecondary
-                    }
-
-                    Text {
-                        text: NotificationService.dnd ? "Do Not Disturb (ON)" : "Do Not Disturb"
-                        font.family: "JetBrainsMono Nerd Font Propo"
-                        font.pixelSize: 10
-                        font.weight: Font.DemiBold
-                        color: NotificationService.dnd ? Theme.danger : Theme.textPrimary
-                    }
-                }
-
-                MouseArea {
-                    id: dndMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: NotificationService.toggleDnd()
-                }
-            }
-
-            // Automatic Idle (Caffeine Mode) + Timeout configuration button
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 30
-                radius: 8
-                color: IdleService.inhibited ? Theme.surfaceActive : (idleMouse.containsMouse ? Theme.surfaceHover : Theme.surface)
-                border.color: IdleService.inhibited ? Theme.warning : Theme.border
-                border.width: IdleService.inhibited ? 2 : 1
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 6
-                    spacing: 6
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-
-                        RowLayout {
-                            anchors.centerIn: parent
-                            spacing: 6
-
-                            Text {
-                                text: IdleService.icon
-                                font.family: "JetBrainsMono Nerd Font Propo"
-                                font.pixelSize: 12
-                                color: IdleService.inhibited ? Theme.warning : Theme.textSecondary
-                            }
-
-                            Text {
-                                text: IdleService.inhibited
-                                    ? "Idle: Inhibited"
-                                    : ("Idle · " + IdleService.formatDuration(IdleService.lockTimeout))
-                                font.family: "JetBrainsMono Nerd Font Propo"
-                                font.pixelSize: 10
-                                font.weight: Font.DemiBold
-                                color: IdleService.inhibited ? Theme.warning : Theme.textPrimary
-                            }
-                        }
-
-                        MouseArea {
-                            id: idleMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-                            onClicked: mouse => {
-                                if (mouse.button === Qt.RightButton) {
-                                    root.openIdleManager();
-                                } else {
-                                    root.toggleIdle();
-                                }
-                            }
-                        }
-                    }
-
-                    // Vertical separator and idle timeout settings button
-                    Rectangle {
-                        implicitWidth: 1
-                        implicitHeight: 16
-                        color: Theme.border
-                        opacity: 0.6
-                    }
-
-                    Rectangle {
-                        implicitWidth: 22
-                        implicitHeight: 20
-                        radius: 5
-                        color: idleCfgMouse.containsMouse ? Theme.surfaceActive : "transparent"
+                    RowLayout {
+                        anchors.centerIn: parent
+                        spacing: 6
 
                         Text {
-                            anchors.centerIn: parent
-                            text: "󰒓"
+                            text: IdleService.icon
                             font.family: "JetBrainsMono Nerd Font Propo"
-                            font.pixelSize: 11
-                            color: idleCfgMouse.containsMouse ? Theme.accent : Theme.textMuted
+                            font.pixelSize: 12
+                            color: IdleService.inhibited ? Theme.warning : Theme.textSecondary
                         }
 
-                        MouseArea {
-                            id: idleCfgMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.openIdleManager()
+                        Text {
+                            text: IdleService.inhibited
+                                ? "Idle: Inhibited"
+                                : ("Idle · " + IdleService.formatDuration(IdleService.lockTimeout))
+                            font.family: "JetBrainsMono Nerd Font Propo"
+                            font.pixelSize: 10
+                            font.weight: Font.DemiBold
+                            color: IdleService.inhibited ? Theme.warning : Theme.textPrimary
                         }
+                    }
+
+                    MouseArea {
+                        id: idleMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: mouse => {
+                            if (mouse.button === Qt.RightButton) {
+                                root.openIdleManager();
+                            } else {
+                                root.toggleIdle();
+                            }
+                        }
+                    }
+                }
+
+                // Vertical separator and idle timeout settings button
+                Rectangle {
+                    implicitWidth: 1
+                    implicitHeight: 16
+                    color: Theme.border
+                    opacity: 0.6
+                }
+
+                Rectangle {
+                    implicitWidth: 22
+                    implicitHeight: 20
+                    radius: 5
+                    color: idleCfgMouse.containsMouse ? Theme.surfaceActive : "transparent"
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰒓"
+                        font.family: "JetBrainsMono Nerd Font Propo"
+                        font.pixelSize: 11
+                        color: idleCfgMouse.containsMouse ? Theme.accent : Theme.textMuted
+                    }
+
+                    MouseArea {
+                        id: idleCfgMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openIdleManager()
                     }
                 }
             }
@@ -1036,7 +993,7 @@ FocusScope {
         // Notifications header
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: 6
 
             Text {
                 text: "󰂚 Notifications"
@@ -1065,6 +1022,91 @@ FocusScope {
             }
 
             Item { Layout.fillWidth: true }
+
+            // Notification sound toggle button
+            Rectangle {
+                implicitWidth: soundRow.implicitWidth + 10
+                implicitHeight: 22
+                radius: 6
+                opacity: NotificationService.dnd ? 0.55 : 1.0
+                color: NotificationService.soundEnabled
+                    ? (soundMouse.containsMouse ? Theme.surfaceHover : Theme.surface)
+                    : (soundMouse.containsMouse ? Theme.surfaceHover : "transparent")
+                border.color: soundMouse.containsMouse ? Theme.borderHover : Theme.border
+                border.width: 1
+
+                RowLayout {
+                    id: soundRow
+                    anchors.centerIn: parent
+                    spacing: 4
+
+                    Text {
+                        text: NotificationService.soundEnabled ? "󰕾" : "󰝟"
+                        font.family: "JetBrainsMono Nerd Font Propo"
+                        font.pixelSize: 11
+                        color: NotificationService.soundEnabled ? Theme.accent : Theme.textMuted
+                    }
+
+                    Text {
+                        text: NotificationService.soundEnabled ? "Sound" : "Muted"
+                        font.family: "JetBrainsMono Nerd Font Propo"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                        color: NotificationService.soundEnabled ? Theme.textPrimary : Theme.textMuted
+                    }
+                }
+
+                MouseArea {
+                    id: soundMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: NotificationService.toggleSound()
+                }
+            }
+
+            // Do Not Disturb (DND) toggle button
+            Rectangle {
+                implicitWidth: dndRow.implicitWidth + 10
+                implicitHeight: 22
+                radius: 6
+                color: NotificationService.dnd
+                    ? Theme.surfaceActive
+                    : (dndMouse.containsMouse ? Theme.surfaceHover : "transparent")
+                border.color: NotificationService.dnd
+                    ? Theme.danger
+                    : (dndMouse.containsMouse ? Theme.borderHover : Theme.border)
+                border.width: NotificationService.dnd ? 1.5 : 1
+
+                RowLayout {
+                    id: dndRow
+                    anchors.centerIn: parent
+                    spacing: 4
+
+                    Text {
+                        text: NotificationService.dnd ? "󰂛" : "󰂚"
+                        font.family: "JetBrainsMono Nerd Font Propo"
+                        font.pixelSize: 11
+                        color: NotificationService.dnd ? Theme.danger : Theme.textSecondary
+                    }
+
+                    Text {
+                        text: "DND"
+                        font.family: "JetBrainsMono Nerd Font Propo"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                        color: NotificationService.dnd ? Theme.danger : Theme.textPrimary
+                    }
+                }
+
+                MouseArea {
+                    id: dndMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: NotificationService.toggleDnd()
+                }
+            }
 
             // Clear All button
             Rectangle {

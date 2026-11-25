@@ -30,10 +30,11 @@ StatusIndicatorButton {
         if (NotificationService.dnd) {
             return "Do Not Disturb ACTIVE\n[Right click: Disable DND]";
         }
+        var soundLine = NotificationService.soundEnabled ? "" : "\nSound: Muted";
         if (root.count > 0) {
-            return root.count + " pending notification(s)\n[Right click: Enable Do Not Disturb]\n[Left click: Open Control Center]";
+            return root.count + " pending notification(s)" + soundLine + "\n[Right click: Enable Do Not Disturb]\n[Left click: Open Control Center]";
         }
-        return "No pending notifications\n[Right click: Enable Do Not Disturb]";
+        return "No pending notifications" + soundLine + "\n[Right click: Enable Do Not Disturb]";
     }
 
     // Clicks

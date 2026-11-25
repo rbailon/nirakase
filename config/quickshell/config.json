@@ -12,7 +12,7 @@
     "cornerRadius": 12
   },
   "bar": {
-    "longbar": false
+    "longbar": true
   },
   "clock": {
     "format24h": true,
@@ -29,5 +29,12 @@
     "autoPromptOnHotplug": true,
     "lastLayoutMode": "extend-left",
     "primaryOutput": "DP-3"
+  },
+  "notifications": {
+    "dnd": false,
+    "soundEnabled": true,
+    "soundFile": "",
+    "soundName": "message-new-instant",
+    "criticalSoundName": "dialog-warning"
   }
 }
