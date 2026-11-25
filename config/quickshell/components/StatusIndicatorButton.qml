@@ -32,6 +32,7 @@ Item {
     // Interaction signals
     signal clicked()
     signal rightClicked()
+    signal middleClicked()
 
     // Integration with layouts (ColumnLayout / RowLayout)
     visible: available
@@ -185,7 +186,7 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
 
             onContainsMouseChanged: {
                 if (containsMouse && root.tooltip !== "") {
@@ -203,6 +204,8 @@ Item {
                     root.clicked();
                 } else if (mouse.button === Qt.RightButton) {
                     root.rightClicked();
+                } else if (mouse.button === Qt.MiddleButton) {
+                    root.middleClicked();
                 }
             }
         }

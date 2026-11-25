@@ -29,6 +29,14 @@ Item {
     // Notification list in center/history
     property var history: []
     property int unreadCount: history.length
+    readonly property bool hasCritical: {
+        for (var i = 0; i < history.length; i++) {
+            if (history[i] && history[i].urgency === NotificationUrgency.Critical) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     // Last received notification (for popup toasts)
     property var currentPopup: null
