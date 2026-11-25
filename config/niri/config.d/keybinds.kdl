@@ -11,7 +11,7 @@ binds {
 
     // 1. Main Terminal
     Mod+Return repeat=false hotkey-overlay-title="Tmux" { spawn "uwsm" "app" "--" "foot" "tmux" "new-session" "-A" "-s" "Work"; }
-    Mod+Alt+Return repeat=false hotkey-overlay-title="Open a Terminal" { spawn "uwsm" "app" "--" "xdg-terminal-exec"; }
+    Mod+Shift+Return repeat=false hotkey-overlay-title="Open a Terminal" { spawn "uwsm" "app" "--" "xdg-terminal-exec"; }
 
     // 2. Application Launcher
     Mod+Alt+Space repeat=false hotkey-overlay-title="Nirakase menu" { spawn "nirakase-launch-or-focus-tui" "nirakase-menu-fzf"; }
