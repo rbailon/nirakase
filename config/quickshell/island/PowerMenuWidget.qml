@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
+import "../services"
 import ".."
 
 FocusScope {
@@ -18,50 +18,62 @@ FocusScope {
 
     property int focusedIndex: 0
 
-    // Power actions and corresponding system commands
+    // Power actions and corresponding system actions
     readonly property var actions: [
         {
+            id: "lock",
             name: "Lock",
             icon: "󰌾",
-            cmd: "swaylock -f || swaylock || loginctl lock-session",
             isDanger: false
         },
         {
+            id: "suspend",
             name: "Suspend",
             icon: "󰤄",
-            cmd: "(pidof swaylock >/dev/null || swaylock -f) & sleep 0.3 && systemctl suspend",
             isDanger: false
         },
         {
+            id: "logout",
             name: "Log Out",
             icon: "󰍃",
-            cmd: "niri msg action quit --skip-confirmation || loginctl terminate-user $USER",
             isDanger: false
         },
         {
+            id: "reboot",
             name: "Reboot",
             icon: "󰑐",
-            cmd: "systemctl reboot",
             isDanger: false
         },
         {
+            id: "poweroff",
             name: "Power Off",
             icon: "󰐥",
-            cmd: "systemctl poweroff",
             isDanger: true
         }
     ]
-
-    Process {
-        id: proc
-    }
 
     function runAction(index) {
         if (index < 0 || index >= actions.length) return;
         var item = actions[index];
         root.actionExecuted();
         root.closeRequested();
-        proc.exec(["bash", "-c", item.cmd]);
+        switch (item.id) {
+            case "lock":
+                IdleService.lockNow();
+                break;
+            case "suspend":
+                IdleService.suspendNow();
+                break;
+            case "logout":
+                Quickshell.execDetached(["sh", "-c", "niri msg action quit --skip-confirmation || loginctl terminate-user \"$USER\""]);
+                break;
+            case "reboot":
+                Quickshell.execDetached(["systemctl", "reboot"]);
+                break;
+            case "poweroff":
+                Quickshell.execDetached(["systemctl", "poweroff"]);
+                break;
+        }
     }
 
     // Grab keyboard focus when widget becomes visible

@@ -76,21 +76,25 @@ Singleton {
         Config.set("idle.suspendTimeout", 900);
     }
 
+    // Launch swaylock detached with /dev/null stdio (in its own uwsm scope when available)
+    // to prevent SIGPIPE kills on stderr writes (e.g. failed PAM attempts) and isolate it from quickshell restarts.
+    function _lockCommand() {
+        return "pidof swaylock >/dev/null || (command -v uwsm >/dev/null 2>&1 && uwsm app -- swaylock -f || swaylock -f || loginctl lock-session) </dev/null >/dev/null 2>&1";
+    }
+
     function lockNow() {
-        lockProc.exec(["sh", "-c", "pidof swaylock >/dev/null || swaylock -f"]);
+        Quickshell.execDetached(["sh", "-c", root._lockCommand()]);
     }
 
     function suspendNow() {
-        suspendProc.exec(["sh", "-c", "(pidof swaylock >/dev/null || swaylock -f) & sleep 0.3 && systemctl suspend"]);
+        Quickshell.execDetached(["sh", "-c", "(" + root._lockCommand() + ") && systemctl suspend"]);
     }
 
     // ── Processes for running actions ─────────────────────────────
     property bool isDimmed: false
 
     Process { id: dimProc }
-    Process { id: lockProc }
     Process { id: dpmsProc }
-    Process { id: suspendProc }
 
     Timer {
         id: restoreBrightnessTimer

@@ -175,7 +175,7 @@ binds {
     // Mod+T hotkey-overlay-title="Open a Terminal: alacritty" { spawn "alacritty"; }
 
     // Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
-    Ctrl+Alt+L allow-inhibiting=false repeat=false hotkey-overlay-title="Lock the Screen: swaylock" { spawn "uwsm" "app" "--" "swaylock"; }
+    Ctrl+Alt+L allow-inhibiting=false allow-when-locked=true repeat=false hotkey-overlay-title="Lock the Screen: swaylock" { spawn "uwsm" "app" "--" "swaylock"; }
 
     // Open/close the Overview: a zoomed-out view of workspaces and windows.
     // You can also move the mouse into the top-left hot corner,
