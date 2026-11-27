@@ -27,6 +27,9 @@ window-rule {
 
     match app-id="xdg-desktop-portal-gtk"
     match app-id="xdg-desktop-portal-gnome" // "Save File" windows
+
+    match title="Remmina Remote Desktop Client"
+
     
     open-floating true
     open-on-workspace "current"
